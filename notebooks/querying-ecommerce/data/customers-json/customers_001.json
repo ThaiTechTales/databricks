@@ -1,16 +1,1 @@
-[
-    {
-        "customer_id": "C001",
-        "name": "Alice Smith",
-        "email": "alice.smith@example.com",
-        "country": "AU",
-        "last_updated": "2025-01-01T01:00:00Z"
-    },
-    {
-        "customer_id": "C002",
-        "name": "Bob Johnson",
-        "email": "bob.johnson@example.com",
-        "country": "AU",
-        "last_updated": "2025-01-02T02:30:00Z"
-    }
-]
+[ { "customer_id": "C001", "name": "Alice Smith", "email": "alice.smith@example.com", "country": "AU", "last_updated": "2025-01-01T01:00:00Z" }, { "customer_id": "C002", "name": "Bob Johnson", "email": "bob.johnson@example.com", "country": "AU", "last_updated": "2025-01-02T02:30:00Z" } ]

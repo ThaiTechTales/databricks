@@ -8,32 +8,32 @@
 SELECT
     *
 FROM
-    json.`/mnt/data/querying-ecommerce/data/customers-json/customers_001.json`;
+    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json/customers_001.json`;
 
 -- COMMAND ----------
 SELECT
     *
 FROM
-    json.`/mnt/data/querying-ecommerce/data/customers-json/customers_*.json`;
+    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json/customers_*.json`;
 
 -- COMMAND ----------
 SELECT
     *
 FROM
-    json.`/mnt/data/querying-ecommerce/data/customers-json`;
+    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json`;
 
 -- COMMAND ----------
 SELECT
     COUNT(*)
 FROM
-    json.`/mnt/data/querying-ecommerce/data/customers-json`;
+    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json`;
 
 -- COMMAND ----------
 SELECT
     *,
     input_file_name () AS source_file
 FROM
-    json.`/mnt/data/querying-ecommerce/data/customers-json`;
+    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json`;
 
 -- COMMAND ----------
 -- MAGIC %md
@@ -42,7 +42,7 @@ FROM
 SELECT
     *
 FROM
-    csv.`/mnt/data/querying-ecommerce/data/transactions-csv`;
+    csv.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/transactions-csv`;
 
 -- COMMAND ----------
 CREATE TABLE
@@ -52,7 +52,7 @@ CREATE TABLE
         amount DOUBLE,
         currency STRING,
         timestamp STRING
-    ) USING CSV OPTIONS (header = "true", delimiter = ";") LOCATION '/mnt/data/querying-ecommerce/data/transactions-csv';
+    ) USING CSV OPTIONS (header = "true", delimiter = ";") LOCATION 'file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/transactions-csv';
 
 -- COMMAND ----------
 SELECT
@@ -72,7 +72,7 @@ CREATE TABLE
 SELECT
     *
 FROM
-    json.`/mnt/data/querying-ecommerce/data/customers-json`;
+    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json`;
 
 DESCRIBE EXTENDED customers_delta;
 
@@ -84,7 +84,7 @@ CREATE TEMP VIEW transactions_tmp_vw (
     currency STRING,
     timestamp STRING
 ) USING CSV OPTIONS (
-    path = "/mnt/data/querying-ecommerce/data/transactions-csv/transactions_*.csv",
+    path = "file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/transactions-csv/transactions_*.csv",
     header = "true",
     delimiter = ";"
 );

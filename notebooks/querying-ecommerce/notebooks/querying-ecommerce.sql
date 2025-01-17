@@ -10,7 +10,8 @@
 -- COMMAND ----------
 
 -- MAGIC %python
--- MAGIC dbutils.fs.ls("file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json")
+-- MAGIC files = dbutils.fs.ls("file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/transactions-csv/")
+-- MAGIC display(files)
 
 -- COMMAND ----------
 
@@ -23,6 +24,7 @@ FROM
 -- COMMAND ----------
 
 -- Multiple files queried directly using Spark SQL
+-- Select all colums
 SELECT
     *
 FROM
@@ -33,6 +35,7 @@ FROM
 
 -- Count the total number of records in the JSON files located at the specified path 
 -- Record: row in a table
+-- COUNT(*) counts the number of records in the JSON files
 SELECT
     COUNT(*)
 FROM
@@ -46,7 +49,7 @@ SELECT
     input_file_name() AS source_file  -- Add a new column 'source_file' that contains the name of the file from which each record was read
     -- AS creates an alias, which is a temp name given to a table or column for the duration of a query.
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json`;  -- Specify the path to the JSON files
+    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json/*.json`;  -- Specify the path to the JSON files
 
 -- COMMAND ----------
 
@@ -55,7 +58,7 @@ FROM
 
 -- COMMAND ----------
 
--- Create a table from the text file
+-- Reads from the text file
 SELECT
   *
 FROM 
@@ -80,53 +83,34 @@ FROM
 
 -- COMMAND ----------
 
--- Create a table from the CSV files
+-- Reads a CSV files
 SELECT
     *
 FROM
-    csv.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/transactions-csv`;
-
--- COMMAND ----------
-
-CREATE TABLE
-    transactions_csv (
-        transaction_id STRING,
-        customer_id STRING,
-        amount DOUBLE,
-        currency STRING,
-        timestamp STRING
-    ) USING CSV OPTIONS (header = "true", delimiter = ";") LOCATION 'file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/transactions-csv';
-
--- COMMAND ----------
-
-SELECT
-    *
-FROM
-    transactions_csv;
-
--- COMMAND ----------
-
-DESCRIBE EXTENDED transactions_csv;
+    csv.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/transactions-csv/`;
 
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC ## Delta Tables - Creating and Managing
+-- MAGIC ## CTAS
 
 -- COMMAND ----------
 
-CREATE TABLE
-    customers_delta AS
+-- The temporary view serves as a staging layer for transformations, options handling, and schema validation.
+-- Loading data into a Delta table from a temporary view ensures you get the full benefits of Delta Lake features while maintaining data integrity and performance.
+-- Directly referencing external files skips this staging step, risking slower queries and limited functionality.
+
+CREATE TABLE customers_01 AS
 SELECT
     *
 FROM
     json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json`;
 
-DESCRIBE EXTENDED customers_delta;
+DESCRIBE EXTENDED customers_01;
 
 -- COMMAND ----------
 
-CREATE TEMP VIEW transactions_tmp_vw (
+CREATE TEMP VIEW transactions_tmp_vw_02 (
     transaction_id STRING,
     customer_id STRING,
     amount DOUBLE,
@@ -135,34 +119,29 @@ CREATE TEMP VIEW transactions_tmp_vw (
 ) USING CSV OPTIONS (
     path = "file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/transactions-csv/transactions_*.csv",
     header = "true",
-    delimiter = ";"
+    delimiter = ","
 );
 
 CREATE TABLE
-    transactions_delta AS
+    transactions_delta_02 AS
 SELECT
     *
 FROM
-    transactions_tmp_vw;
+    transactions_tmp_vw_02;
 
-DESCRIBE EXTENDED transactions_delta;
+DESCRIBE EXTENDED transactions_delta_02;
 
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC ## Testing Data Refresh with Non-Delta Tables
+-- MAGIC ## Data Refresh
 
 -- COMMAND ----------
 
 -- Add a new file to the directory manually or programmatically
-REFRESH TABLE transactions_csv;
+REFRESH TABLE transactions_delta_02;
 
 SELECT
     COUNT(*)
 FROM
-    transactions_csv;
-
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC ## End of Notebook
+    transactions_delta_02;

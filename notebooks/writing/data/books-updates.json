@@ -1,0 +1,1 @@
+[ {"book_id": "B001", "title": "Intro to Python", "author": "John Smith", "category": "Programming", "price": 29.99}, {"book_id": "B002", "title": "Advanced Java", "author": "Jane Doe", "category": "Computer Science", "price": 39.99} ]

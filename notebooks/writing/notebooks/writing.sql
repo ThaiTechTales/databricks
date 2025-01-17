@@ -1,16 +1,15 @@
--- Databricks notebook source
+-- Databricks Notebook Source
 -- MAGIC %md
--- MAGIC # Comprehensive Learning of Writing to Delta Tables with ACID Transactions
-
+-- MAGIC # Comprehensive Learning of Writing to Delta Tables with ACID Transactions Using JSON Files
 -- COMMAND ----------
 -- MAGIC %md
 -- MAGIC ## Step 1: Set Up Directories and Import Data
-
+-- MAGIC Ensure JSON files are located in the directory:  
+-- MAGIC `file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/<folder>/`
 -- COMMAND ----------
 -- MAGIC %md
 -- MAGIC ## Step 2: Create Delta Tables
--- MAGIC Create `orders` Delta table from Parquet.
-
+-- MAGIC Create `orders` Delta table from JSON.
 -- COMMAND ----------
 -- MAGIC %sql
 CREATE TABLE
@@ -18,7 +17,7 @@ CREATE TABLE
 SELECT
     *
 FROM
-    parquet.`/mnt/demo/bookstore/orders`;
+    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/orders.json`;
 
 -- COMMAND ----------
 -- MAGIC %sql
@@ -32,7 +31,6 @@ FROM
 -- MAGIC %md
 -- MAGIC ## Step 3: Overwriting Data with CREATE OR REPLACE TABLE
 -- MAGIC Replace `orders` table data completely using CREATE OR REPLACE TABLE.
-
 -- COMMAND ----------
 -- MAGIC %sql
 CREATE
@@ -40,7 +38,7 @@ OR REPLACE TABLE orders USING DELTA AS
 SELECT
     *
 FROM
-    parquet.`/mnt/demo/bookstore/orders`;
+    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/orders.json`;
 
 -- COMMAND ----------
 -- MAGIC %sql
@@ -51,14 +49,13 @@ DESCRIBE HISTORY orders;
 -- MAGIC %md
 -- MAGIC ## Step 4: Overwriting Data with INSERT OVERWRITE
 -- MAGIC Overwrite `orders` table data using INSERT OVERWRITE.
-
 -- COMMAND ----------
 -- MAGIC %sql
 INSERT OVERWRITE orders
 SELECT
     *
 FROM
-    parquet.`/mnt/demo/bookstore/orders-new`;
+    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/orders-new.json`;
 
 -- COMMAND ----------
 -- MAGIC %sql
@@ -77,7 +74,6 @@ DESCRIBE HISTORY orders;
 -- MAGIC %md
 -- MAGIC ### Attempt Schema Mismatch Scenario with INSERT OVERWRITE
 -- MAGIC Attempt to insert data with a mismatched schema.
-
 -- COMMAND ----------
 -- MAGIC %sql
 INSERT OVERWRITE orders
@@ -85,13 +81,12 @@ SELECT
     *,
     current_timestamp() AS new_column
 FROM
-    parquet.`/mnt/demo/bookstore/orders`;
+    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/orders.json`;
 
 -- COMMAND ----------
 -- MAGIC %md
 -- MAGIC ## Step 5: Appending Data
 -- MAGIC Append new records to `orders` table.
-
 -- COMMAND ----------
 -- MAGIC %sql
 INSERT INTO
@@ -99,7 +94,7 @@ INSERT INTO
 SELECT
     *
 FROM
-    parquet.`/mnt/demo/bookstore/orders-new`;
+    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/orders-new.json`;
 
 -- COMMAND ----------
 -- MAGIC %sql
@@ -113,7 +108,6 @@ FROM
 -- MAGIC %md
 -- MAGIC ## Step 6: Merging Data
 -- MAGIC Create or Replace Temporary View for customer updates.
-
 -- COMMAND ----------
 -- MAGIC %sql
 CREATE
@@ -121,7 +115,7 @@ OR REPLACE TEMP VIEW customers_updates AS
 SELECT
     *
 FROM
-    json.`/mnt/demo/bookstore/customers-json-new`;
+    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/customers-updates.json`;
 
 -- COMMAND ----------
 -- MAGIC %sql
@@ -146,7 +140,6 @@ FROM
 -- MAGIC %md
 -- MAGIC ## Step 7: Conditional Merge with Specific Criteria
 -- MAGIC Create a temporary view for new book updates.
-
 -- COMMAND ----------
 -- MAGIC %sql
 CREATE
@@ -156,10 +149,8 @@ OR REPLACE TEMP VIEW books_updates (
     author STRING,
     category STRING,
     price DOUBLE
-) USING CSV OPTIONS (
-    path = "/mnt/demo/bookstore/books-csv-new",
-    header = "true",
-    delimiter = ";"
+) USING JSON OPTIONS (
+    path = "file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/books-updates.json"
 );
 
 -- COMMAND ----------

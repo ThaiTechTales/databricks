@@ -7,7 +7,7 @@
 -- MAGIC %md
 -- MAGIC ## Step 1: Set Up Directories and Import Data
 -- MAGIC Ensure JSON files are located in the directory:  
--- MAGIC `file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/`
+-- MAGIC `file:/Workspace/Users/<user>/databricks/notebooks/writing/data/`
 
 -- COMMAND ----------
 
@@ -25,7 +25,7 @@ CREATE TABLE orders AS
 SELECT
     *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/orders.json`;
+    json.`file:/Workspace/Users/<user>/databricks/notebooks/writing/data/orders.json`;
 
 -- COMMAND ----------
 
@@ -47,7 +47,7 @@ CREATE OR REPLACE TABLE orders AS
 SELECT
     *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/orders.json`;
+    json.`file:/Workspace/Users/<user>/databricks/notebooks/writing/data/orders.json`;
 
 -- COMMAND ----------
 
@@ -66,7 +66,7 @@ INSERT OVERWRITE orders
 SELECT
     *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/orders-new.json`;
+    json.`file:/Workspace/Users/<user>/databricks/notebooks/writing/data/orders-new.json`;
 
 -- COMMAND ----------
 
@@ -94,7 +94,7 @@ SELECT
     *,
     current_timestamp() AS new_column
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/orders.json`;
+    json.`file:/Workspace/Users/<user>/databricks/notebooks/writing/data/orders.json`;
 
 -- COMMAND ----------
 
@@ -109,7 +109,7 @@ INSERT INTO
 SELECT
     *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/orders-new.json`;
+    json.`file:/Workspace/Users/<user>/databricks/notebooks/writing/data/orders-new.json`;
 
 -- COMMAND ----------
 
@@ -140,7 +140,7 @@ CREATE OR REPLACE TEMP VIEW customers_updates AS
 SELECT
     *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/customers-updates.json`;
+    json.`file:/Workspace/Users/<user>/databricks/notebooks/writing/data/customers-updates.json`;
 
 -- COMMAND ----------
 
@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS
 SELECT
     *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/customers.json`;
+    json.`file:/Workspace/Users/<user>/databricks/notebooks/writing/data/customers.json`;
 
 DESCRIBE EXTENDED customers;
 
@@ -233,7 +233,7 @@ OR REPLACE TEMP VIEW books_updates (
     category STRING,
     price DOUBLE
 ) USING JSON OPTIONS (
-    path = "file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/books-updates.json"
+    path = "file:/Workspace/Users/<user>/databricks/notebooks/writing/data/books-updates.json"
 );
 
 -- COMMAND ----------
@@ -253,7 +253,7 @@ CREATE TABLE IF NOT EXISTS
 SELECT
     *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/books.json`;
+    json.`file:/Workspace/Users/<user>/databricks/notebooks/writing/data/books.json`;
 
 DESCRIBE books;
 

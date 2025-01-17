@@ -1,15 +1,18 @@
--- Databricks Notebook Source
+-- Databricks notebook source
 -- MAGIC %md
 -- MAGIC # Comprehensive Learning of Writing to Delta Tables with ACID Transactions Using JSON Files
+
 -- COMMAND ----------
 -- MAGIC %md
 -- MAGIC ## Step 1: Set Up Directories and Import Data
 -- MAGIC Ensure JSON files are located in the directory:  
 -- MAGIC `file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/writing/data/<folder>/`
+
 -- COMMAND ----------
 -- MAGIC %md
 -- MAGIC ## Step 2: Create Delta Tables
 -- MAGIC Create `orders` Delta table from JSON.
+
 -- COMMAND ----------
 -- MAGIC %sql
 CREATE TABLE
@@ -31,6 +34,7 @@ FROM
 -- MAGIC %md
 -- MAGIC ## Step 3: Overwriting Data with CREATE OR REPLACE TABLE
 -- MAGIC Replace `orders` table data completely using CREATE OR REPLACE TABLE.
+
 -- COMMAND ----------
 -- MAGIC %sql
 CREATE
@@ -49,6 +53,7 @@ DESCRIBE HISTORY orders;
 -- MAGIC %md
 -- MAGIC ## Step 4: Overwriting Data with INSERT OVERWRITE
 -- MAGIC Overwrite `orders` table data using INSERT OVERWRITE.
+
 -- COMMAND ----------
 -- MAGIC %sql
 INSERT OVERWRITE orders
@@ -74,6 +79,7 @@ DESCRIBE HISTORY orders;
 -- MAGIC %md
 -- MAGIC ### Attempt Schema Mismatch Scenario with INSERT OVERWRITE
 -- MAGIC Attempt to insert data with a mismatched schema.
+
 -- COMMAND ----------
 -- MAGIC %sql
 INSERT OVERWRITE orders
@@ -87,6 +93,7 @@ FROM
 -- MAGIC %md
 -- MAGIC ## Step 5: Appending Data
 -- MAGIC Append new records to `orders` table.
+
 -- COMMAND ----------
 -- MAGIC %sql
 INSERT INTO
@@ -108,6 +115,7 @@ FROM
 -- MAGIC %md
 -- MAGIC ## Step 6: Merging Data
 -- MAGIC Create or Replace Temporary View for customer updates.
+
 -- COMMAND ----------
 -- MAGIC %sql
 CREATE
@@ -140,6 +148,7 @@ FROM
 -- MAGIC %md
 -- MAGIC ## Step 7: Conditional Merge with Specific Criteria
 -- MAGIC Create a temporary view for new book updates.
+
 -- COMMAND ----------
 -- MAGIC %sql
 CREATE

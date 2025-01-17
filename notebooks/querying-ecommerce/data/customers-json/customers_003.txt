@@ -1,0 +1,2 @@
+{"customer_id": "C005", "name": "Ethan Edge", "email": "ethan.edge@example.com", "country": "UK", "last_updated": "2025-01-05T05:00:00Z"}
+{"customer_id": "C006", "name": "Fiona Finch", "email": "fiona.finch@example.com", "country": "CA", "last_updated": "2025-01-06T06:30:00Z"}

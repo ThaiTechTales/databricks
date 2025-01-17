@@ -1,50 +1,67 @@
 -- Databricks notebook source
 -- MAGIC %md
--- MAGIC # Querying Files with Spark SQL - Ecommerce Transactions Dataset
+-- MAGIC # Querying Files with Spark SQL
+
 -- COMMAND ----------
+
 -- MAGIC %md
 -- MAGIC ## Querying JSON Data - Customers
+
 -- COMMAND ----------
+
+-- MAGIC %python
+-- MAGIC dbutils.fs.ls("file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json")
+
+-- COMMAND ----------
+
+-- File contents queried directly using Spark SQL
 SELECT
     *
 FROM
     json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json/customers_001.json`;
 
 -- COMMAND ----------
+
+-- Multiple files queried directly using Spark SQL
 SELECT
     *
 FROM
     json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json/customers_*.json`;
 
 -- COMMAND ----------
-SELECT
-    *
-FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json`;
 
--- COMMAND ----------
+
+-- Count the total number of records in the JSON files located at the specified path 
+-- Record: row in a table
 SELECT
     COUNT(*)
 FROM
     json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json`;
 
 -- COMMAND ----------
+
 SELECT
-    *,
-    input_file_name () AS source_file
+    *,  -- Select all columns from the JSON files
+    input_file_name() AS source_file  -- Add a new column 'source_file' that contains the name of the file from which each record was read
+    -- AS creates an alias, which is a temp name given to a table or column for the duration of a query.
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json`;
+    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json`;  -- Specify the path to the JSON files
 
 -- COMMAND ----------
+
 -- MAGIC %md
--- MAGIC ## Querying CSV Data - Transactions
+-- MAGIC ## Querying: CSV Data - Transactions
+
 -- COMMAND ----------
+
+-- Create a table from the CSV files
 SELECT
     *
 FROM
     csv.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/transactions-csv`;
 
 -- COMMAND ----------
+
 CREATE TABLE
     transactions_csv (
         transaction_id STRING,
@@ -55,18 +72,23 @@ CREATE TABLE
     ) USING CSV OPTIONS (header = "true", delimiter = ";") LOCATION 'file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/transactions-csv';
 
 -- COMMAND ----------
+
 SELECT
     *
 FROM
     transactions_csv;
 
 -- COMMAND ----------
+
 DESCRIBE EXTENDED transactions_csv;
 
 -- COMMAND ----------
+
 -- MAGIC %md
 -- MAGIC ## Delta Tables - Creating and Managing
+
 -- COMMAND ----------
+
 CREATE TABLE
     customers_delta AS
 SELECT
@@ -77,6 +99,7 @@ FROM
 DESCRIBE EXTENDED customers_delta;
 
 -- COMMAND ----------
+
 CREATE TEMP VIEW transactions_tmp_vw (
     transaction_id STRING,
     customer_id STRING,
@@ -99,9 +122,12 @@ FROM
 DESCRIBE EXTENDED transactions_delta;
 
 -- COMMAND ----------
+
 -- MAGIC %md
 -- MAGIC ## Testing Data Refresh with Non-Delta Tables
+
 -- COMMAND ----------
+
 -- Add a new file to the directory manually or programmatically
 REFRESH TABLE transactions_csv;
 
@@ -111,5 +137,6 @@ FROM
     transactions_csv;
 
 -- COMMAND ----------
+
 -- MAGIC %md
 -- MAGIC ## End of Notebook

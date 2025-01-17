@@ -5,7 +5,7 @@
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC ## Querying JSON Data - Customers
+-- MAGIC ## JSON Data
 
 -- COMMAND ----------
 
@@ -36,6 +36,7 @@ FROM
 SELECT
     COUNT(*)
 FROM
+-- If you don't specify a file, the entire directory is queried
     json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json`;
 
 -- COMMAND ----------
@@ -50,7 +51,32 @@ FROM
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC ## Querying: CSV Data - Transactions
+-- MAGIC ## Text Data
+
+-- COMMAND ----------
+
+-- Create a table from the text file
+SELECT
+  *
+FROM 
+  text. `file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json/customers_003.txt`;
+
+-- COMMAND ----------
+
+-- MAGIC %md
+-- MAGIC ## Binary Data
+
+-- COMMAND ----------
+
+SELECT 
+  *
+FROM
+  binaryFile. `file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/querying-ecommerce/data/customers-json/customers_004.bin`;
+
+-- COMMAND ----------
+
+-- MAGIC %md
+-- MAGIC ## CSV Data
 
 -- COMMAND ----------
 

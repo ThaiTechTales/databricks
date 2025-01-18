@@ -1,0 +1,1 @@
+[ {"order_id": "O001", "customer_id": "C001", "books": [{"book_id": "B001", "quantity": 2}, {"book_id": "B002", "quantity": 1}]}, {"order_id": "O002", "customer_id": "C002", "books": [{"book_id": "B002", "quantity": 3}, {"book_id": "B003", "quantity": 1}]} ]

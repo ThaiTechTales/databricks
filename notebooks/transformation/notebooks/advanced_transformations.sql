@@ -224,24 +224,26 @@ ON o.book.book_id = b.book_id;
 
 -- COMMAND ----------
 
--- Union operation
-SELECT * FROM orders
+-- Union operation with matching columns
+SELECT order_id, customer_id FROM orders
 UNION 
-SELECT * FROM orders_enriched;
+SELECT order_id, customer_id FROM orders_enriched;
 
 -- COMMAND ----------
 
--- Intersect operation
-SELECT * FROM orders
+-- Intersect operation with matching columns
+SELECT order_id, customer_id FROM orders
 INTERSECT
-SELECT * FROM orders_enriched;
+SELECT order_id, customer_id FROM orders_enriched;
 
 -- COMMAND ----------
 
--- Minus operation
-SELECT * FROM orders
-MINUS
-SELECT * FROM orders_enriched;
+-- Minus operation with matching columns
+SELECT order_id, customer_id
+FROM orders
+EXCEPT
+SELECT order_id, customer_id
+FROM orders_enriched;
 
 -- COMMAND ----------
 
@@ -255,12 +257,13 @@ SELECT * FROM orders_enriched;
 CREATE OR REPLACE TABLE transactions AS
 SELECT * 
 FROM (
-  SELECT customer_id, 
-         book.book_id AS book_id, 
-         book.quantity AS quantity
-  FROM orders_enriched
+  SELECT oe.customer_id, 
+         b.book_id, 
+         oe.order_id -- Assuming order_id is used instead of quantity
+  FROM orders_enriched oe
+  JOIN books b ON oe.title = b.title
 ) PIVOT (
-  sum(quantity) FOR book_id IN ('B001', 'B002', 'B003')
+  count(order_id) FOR book_id IN ('B001', 'B002', 'B003')
 );
 
 -- COMMAND ----------

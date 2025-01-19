@@ -1,0 +1,3 @@
+transaction_id,customer_id,amount,currency,timestamp
+T003,C003,120.50,USD,2024-01-12T09:15:00Z
+T004,C004,300.00,EUR,2024-01-13T11:45:00Z

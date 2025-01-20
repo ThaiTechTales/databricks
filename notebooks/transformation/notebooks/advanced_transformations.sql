@@ -199,7 +199,7 @@ GROUP BY customer_id;
 
 -- MAGIC %md
 -- MAGIC ## Step 7: Join Operations
--- MAGIC Joins in SQL are used to combine rows from two or more tables based on a related column. They allow you to retrieve data spread across multiple tables by matching rows based on a specified condition.
+-- MAGIC Joins in SQL are used to combine rows from two or more tables based on a related column. They allow for the retrieval of data spread across multiple tables by matching rows based on a specified condition.
 -- MAGIC
 -- MAGIC Join `orders` with `books` to enrich data by adding book details.
 
@@ -251,6 +251,16 @@ FROM orders_enriched
 
 -- COMMAND ----------
 
+SELECT *
+FROM orders
+
+-- COMMAND ----------
+
+SELECT *
+FROM orders_enriched
+
+-- COMMAND ----------
+
 -- Union operation with matching columns
 -- Combines rows from both queries.	
 SELECT order_id, customer_id FROM orders
@@ -285,25 +295,6 @@ FROM orders_enriched;
 
 -- COMMAND ----------
 
--- Create a pivot table for book quantities per customer
-CREATE OR REPLACE TABLE transactions AS
-SELECT * 
-FROM (
-       SELECT oe.customer_id, 
-       b.book_id, 
-       oe.order_id
-       FROM orders_enriched oe
-       JOIN books b ON oe.title = b.title
-) PIVOT (
-       count(order_id) FOR book_id IN ('B001', 'B002', 'B003')
-);
-
--- COMMAND ----------
-
--- View the transactions table
-SELECT * FROM transactions;
-
-
 -- Testing the Pivot operation with basic table
 
 -- Create the sales table
@@ -314,6 +305,9 @@ CREATE OR REPLACE TABLE sales (
        amount INT
 );
 
+-- COMMAND ----------
+
+-- Testing the Pivot operation with basic table
 -- Insert data into the sales table
 INSERT INTO sales (customer, product, month, amount) VALUES
 ('Alice', 'Laptop', 'Jan', 1200),
@@ -353,3 +347,23 @@ FROM (
 ) PIVOT (
        SUM(amount) FOR month IN ('Jan', 'Feb', 'Mar')
 );
+
+-- COMMAND ----------
+
+-- Create a pivot table for book quantities per customer
+CREATE OR REPLACE TABLE transactions AS
+SELECT * 
+FROM (
+       SELECT oe.customer_id, 
+       b.book_id, 
+       oe.order_id
+       FROM orders_enriched oe
+       JOIN books b ON oe.title = b.title
+) PIVOT (
+       count(order_id) FOR book_id IN ('B001', 'B002', 'B003')
+);
+
+-- COMMAND ----------
+
+-- View the transactions table
+SELECT * FROM transactions;

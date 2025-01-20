@@ -26,23 +26,23 @@ DROP TABLE IF EXISTS books;
 CREATE TABLE IF NOT EXISTS customers AS
 SELECT *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/customers-string.json`;
+       json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/customers-string.json`;
 
 CREATE TABLE IF NOT EXISTS customers_json AS
 SELECT *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/customers-nested-json.json`;    
+       json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/customers-nested-json.json`;    
 
 CREATE TABLE IF NOT EXISTS orders AS
 SELECT
     *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/orders.json`;
+       json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/orders.json`;
 CREATE TABLE IF NOT EXISTS books AS
 SELECT
     *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/books.json`;
+       json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/books.json`;
 
 -- COMMAND ----------
 
@@ -257,13 +257,13 @@ FROM orders_enriched;
 CREATE OR REPLACE TABLE transactions AS
 SELECT * 
 FROM (
-  SELECT oe.customer_id, 
-         b.book_id, 
-         oe.order_id -- Assuming order_id is used instead of quantity
-  FROM orders_enriched oe
-  JOIN books b ON oe.title = b.title
+       SELECT oe.customer_id, 
+       b.book_id, 
+       oe.order_id
+       FROM orders_enriched oe
+       JOIN books b ON oe.title = b.title
 ) PIVOT (
-  count(order_id) FOR book_id IN ('B001', 'B002', 'B003')
+       count(order_id) FOR book_id IN ('B001', 'B002', 'B003')
 );
 
 -- COMMAND ----------

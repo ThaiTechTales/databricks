@@ -26,23 +26,23 @@ DROP TABLE IF EXISTS books;
 CREATE TABLE IF NOT EXISTS customers AS
 SELECT *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/customers-string.json`;
+       json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/customers-string.json`;
 
 CREATE TABLE IF NOT EXISTS customers_json AS
 SELECT *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/customers-nested-json.json`;    
+       json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/customers-nested-json.json`;    
 
 CREATE TABLE IF NOT EXISTS orders AS
 SELECT
     *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/orders.json`;
+       json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/orders.json`;
 CREATE TABLE IF NOT EXISTS books AS
 SELECT
     *
 FROM
-    json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/books.json`;
+       json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/books.json`;
 
 -- COMMAND ----------
 
@@ -199,13 +199,23 @@ GROUP BY customer_id;
 
 -- MAGIC %md
 -- MAGIC ## Step 7: Join Operations
--- MAGIC Joins in SQL are used to combine rows from two or more tables based on a related column. They allow you to retrieve data spread across multiple tables by matching rows based on a specified condition.
+-- MAGIC Joins in SQL are used to combine rows from two or more tables based on a related column. They allow for the retrieval of data spread across multiple tables by matching rows based on a specified condition.
 -- MAGIC
 -- MAGIC Join `orders` with `books` to enrich data by adding book details.
 
 -- COMMAND ----------
 
 -- Create a view for enriched orders
+-- SELECT *: Includes all columns from the orders table.
+
+-- explode(books):
+-- The books column in the orders table contains an array.
+-- explode(books) creates a new row for each element in the array, effectively "flattening" the array.
+-- The resulting rows will have a new column book, containing one element of the array per row.
+
+-- Alias o:
+-- The subquery is aliased as o, so you can reference its columns with a prefix (e.g., o.order_id, o.book.book_id).
+
 CREATE OR REPLACE VIEW orders_enriched AS
 SELECT o.order_id, 
        o.customer_id, 
@@ -218,13 +228,41 @@ ON o.book.book_id = b.book_id;
 
 -- COMMAND ----------
 
+-- Understanding Select Query
+SELECT *
+FROM orders
+
+-- COMMAND ----------
+
+-- Understanding Select Query
+SELECT *, explode(books) AS book
+FROM orders;
+
+-- COMMAND ----------
+
+SELECT * 
+FROM orders_enriched
+
+-- COMMAND ----------
+
 -- MAGIC %md
 -- MAGIC ## Step 8: Set Operations
 -- MAGIC Perform `UNION`, `INTERSECT`, and `MINUS` operations on the orders data.
 
 -- COMMAND ----------
 
+SELECT *
+FROM orders
+
+-- COMMAND ----------
+
+SELECT *
+FROM orders_enriched
+
+-- COMMAND ----------
+
 -- Union operation with matching columns
+-- Combines rows from both queries.	
 SELECT order_id, customer_id FROM orders
 UNION 
 SELECT order_id, customer_id FROM orders_enriched;
@@ -232,6 +270,7 @@ SELECT order_id, customer_id FROM orders_enriched;
 -- COMMAND ----------
 
 -- Intersect operation with matching columns
+-- Finds rows common to both queries.	
 SELECT order_id, customer_id FROM orders
 INTERSECT
 SELECT order_id, customer_id FROM orders_enriched;
@@ -239,6 +278,7 @@ SELECT order_id, customer_id FROM orders_enriched;
 -- COMMAND ----------
 
 -- Minus operation with matching columns
+-- Finds rows in the first query but not in the second.	
 SELECT order_id, customer_id
 FROM orders
 EXCEPT
@@ -249,7 +289,64 @@ FROM orders_enriched;
 
 -- MAGIC %md
 -- MAGIC ## Step 9: Reshaping Data with Pivot
+-- MAGIC A pivot is a technique in SQL used to transform rows of data into columns. It’s commonly used to reorganise and summarise data, making it easier to analyse relationships or trends.
+-- MAGIC
 -- MAGIC Use the `PIVOT` clause to reshape data for aggregation and dashboarding.
+
+-- COMMAND ----------
+
+-- Testing the Pivot operation with basic table
+
+-- Create the sales table
+CREATE OR REPLACE TABLE sales (
+       customer VARCHAR(50),
+       product VARCHAR(50),
+       month VARCHAR(10),
+       amount INT
+);
+
+-- COMMAND ----------
+
+-- Testing the Pivot operation with basic table
+-- Insert data into the sales table
+INSERT INTO sales (customer, product, month, amount) VALUES
+('Alice', 'Laptop', 'Jan', 1200),
+('Alice', 'Phone', 'Jan', 800),
+('Bob', 'Laptop', 'Feb', 1500),
+('Bob', 'Tablet', 'Feb', 700),
+('Alice', 'Laptop', 'Mar', 1300),
+('Bob', 'Phone', 'Mar', 900);
+
+
+-- COMMAND ----------
+
+-- Testing the Pivot operation with basic table
+
+SELECT *
+FROM sales;
+
+-- COMMAND ----------
+
+-- Testing the Pivot operation with basic table
+
+-- Pivot the data so that:
+-- Each month becomes a column.
+-- The values in these columns represent the sum of amount for each customer and product.
+
+-- Columns to Pivot:
+-- The PIVOT clause specifies that month values ('Jan', 'Feb', 'Mar') will become columns.
+-- Aggregation:
+-- The SUM(amount) function calculates the total amount for each combination of customer, product, and month.
+-- Nulls for Missing Data:
+-- If there’s no data for a specific combination (e.g., Alice bought nothing in Feb), the result is NULL.
+
+SELECT *
+FROM (
+       SELECT customer, product, month, amount
+       FROM sales
+) PIVOT (
+       SUM(amount) FOR month IN ('Jan', 'Feb', 'Mar')
+);
 
 -- COMMAND ----------
 
@@ -257,13 +354,13 @@ FROM orders_enriched;
 CREATE OR REPLACE TABLE transactions AS
 SELECT * 
 FROM (
-  SELECT oe.customer_id, 
-         b.book_id, 
-         oe.order_id -- Assuming order_id is used instead of quantity
-  FROM orders_enriched oe
-  JOIN books b ON oe.title = b.title
+       SELECT oe.customer_id, 
+       b.book_id, 
+       oe.order_id
+       FROM orders_enriched oe
+       JOIN books b ON oe.title = b.title
 ) PIVOT (
-  count(order_id) FOR book_id IN ('B001', 'B002', 'B003')
+       count(order_id) FOR book_id IN ('B001', 'B002', 'B003')
 );
 
 -- COMMAND ----------

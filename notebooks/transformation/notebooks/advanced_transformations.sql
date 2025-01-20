@@ -12,7 +12,7 @@
 -- COMMAND ----------
 
 -- MAGIC %fs
--- MAGIC ls file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/
+-- MAGIC ls file:/Workspace/Users/<user>/databricks/notebooks/transformation/data/
 
 -- COMMAND ----------
 
@@ -26,23 +26,23 @@ DROP TABLE IF EXISTS books;
 CREATE TABLE IF NOT EXISTS customers AS
 SELECT *
 FROM
-       json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/customers-string.json`;
+       json.`file:/Workspace/Users/<user>/databricks/notebooks/transformation/data/customers-string.json`;
 
 CREATE TABLE IF NOT EXISTS customers_json AS
 SELECT *
 FROM
-       json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/customers-nested-json.json`;    
+       json.`file:/Workspace/Users/<user>/databricks/notebooks/transformation/data/customers-nested-json.json`;    
 
 CREATE TABLE IF NOT EXISTS orders AS
 SELECT
     *
 FROM
-       json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/orders.json`;
+       json.`file:/Workspace/Users/<user>/databricks/notebooks/transformation/data/orders.json`;
 CREATE TABLE IF NOT EXISTS books AS
 SELECT
     *
 FROM
-       json.`file:/Workspace/Users/thai.le.trial.02@gmail.com/databricks/notebooks/transformation/data/books.json`;
+       json.`file:/Workspace/Users/<user>/databricks/notebooks/transformation/data/books.json`;
 
 -- COMMAND ----------
 

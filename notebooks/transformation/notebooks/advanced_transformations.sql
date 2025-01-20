@@ -206,6 +206,16 @@ GROUP BY customer_id;
 -- COMMAND ----------
 
 -- Create a view for enriched orders
+-- SELECT *: Includes all columns from the orders table.
+
+-- explode(books):
+-- The books column in the orders table contains an array.
+-- explode(books) creates a new row for each element in the array, effectively "flattening" the array.
+-- The resulting rows will have a new column book, containing one element of the array per row.
+
+-- Alias o:
+-- The subquery is aliased as o, so you can reference its columns with a prefix (e.g., o.order_id, o.book.book_id).
+
 CREATE OR REPLACE VIEW orders_enriched AS
 SELECT o.order_id, 
        o.customer_id, 
@@ -218,6 +228,23 @@ ON o.book.book_id = b.book_id;
 
 -- COMMAND ----------
 
+-- Understanding Select Query
+SELECT *
+FROM orders
+
+-- COMMAND ----------
+
+-- Understanding Select Query
+SELECT *, explode(books) AS book
+FROM orders;
+
+-- COMMAND ----------
+
+SELECT * 
+FROM orders_enriched
+
+-- COMMAND ----------
+
 -- MAGIC %md
 -- MAGIC ## Step 8: Set Operations
 -- MAGIC Perform `UNION`, `INTERSECT`, and `MINUS` operations on the orders data.
@@ -225,6 +252,7 @@ ON o.book.book_id = b.book_id;
 -- COMMAND ----------
 
 -- Union operation with matching columns
+-- Combines rows from both queries.	
 SELECT order_id, customer_id FROM orders
 UNION 
 SELECT order_id, customer_id FROM orders_enriched;
@@ -232,6 +260,7 @@ SELECT order_id, customer_id FROM orders_enriched;
 -- COMMAND ----------
 
 -- Intersect operation with matching columns
+-- Finds rows common to both queries.	
 SELECT order_id, customer_id FROM orders
 INTERSECT
 SELECT order_id, customer_id FROM orders_enriched;
@@ -239,6 +268,7 @@ SELECT order_id, customer_id FROM orders_enriched;
 -- COMMAND ----------
 
 -- Minus operation with matching columns
+-- Finds rows in the first query but not in the second.	
 SELECT order_id, customer_id
 FROM orders
 EXCEPT
@@ -249,6 +279,8 @@ FROM orders_enriched;
 
 -- MAGIC %md
 -- MAGIC ## Step 9: Reshaping Data with Pivot
+-- MAGIC A pivot is a technique in SQL used to transform rows of data into columns. It’s commonly used to reorganise and summarise data, making it easier to analyse relationships or trends.
+-- MAGIC
 -- MAGIC Use the `PIVOT` clause to reshape data for aggregation and dashboarding.
 
 -- COMMAND ----------
@@ -304,7 +336,7 @@ FROM sales;
 -- Testing the Pivot operation with basic table
 
 -- Pivot the data so that:
-- Each month becomes a column.
+-- Each month becomes a column.
 -- The values in these columns represent the sum of amount for each customer and product.
 
 -- Columns to Pivot:
@@ -316,8 +348,8 @@ FROM sales;
 
 SELECT *
 FROM (
-    SELECT customer, product, month, amount
-    FROM sales
+       SELECT customer, product, month, amount
+       FROM sales
 ) PIVOT (
-    SUM(amount) FOR month IN ('Jan', 'Feb', 'Mar')
+       SUM(amount) FOR month IN ('Jan', 'Feb', 'Mar')
 );

@@ -1,193 +1,160 @@
 -- Databricks notebook source
--- MAGIC %md
--- MAGIC 
--- MAGIC ## Learning Spark SQL: Advanced Transformations and User-Defined Functions (UDFs)
+-- MAGIC %md-sandbox
+-- MAGIC
+-- MAGIC <div style="text-align: center; line-height: 0; padding-top: 9px;">
+-- MAGIC   <img src="https://upload.wikimedia.org/wikipedia/commons/6/63/Databricks_Logo.png" alt="Databricks Learning" style="width: 600px">
+-- MAGIC </div>
+-- MAGIC
+-- MAGIC ## Exploring Higher-Order Functions and User Defined Functions (UDF) in Databricks
 
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC 
--- MAGIC ### Step 1: Create Example Dataset
--- MAGIC Let's create example datasets for customers, orders, and books. These datasets simulate a real-world scenario of a bookstore.
+-- MAGIC
+-- MAGIC ### Step 1: Creating and Loading the Dataset
+-- MAGIC We will work with a hypothetical e-commerce dataset comprising `customers`, `orders`, and `books` tables. The `books` column in the `orders` table contains hierarchical data.
 
 -- COMMAND ----------
 
--- Create customers table
+-- Create the `customers` table
 CREATE OR REPLACE TEMP VIEW customers AS
 SELECT * FROM VALUES
-    (1, 'john.doe@example.com', '{"first_name":"John","last_name":"Doe","address":{"street":"123 Elm St","city":"Springfield","country":"USA"}}'),
-    (2, 'jane.smith@example.org', '{"first_name":"Jane","last_name":"Smith","address":{"street":"456 Oak St","city":"Springfield","country":"USA"}}'),
-    (3, 'alice.wonder@example.edu', '{"first_name":"Alice","last_name":"Wonder","address":{"street":"789 Pine St","city":"Denver","country":"USA"}}')
-AS customers(customer_id, email, profile);
+    (1, "alice@example.com"),
+    (2, "bob@education.edu"),
+    (3, "charlie@nonprofit.org"),
+    (4, "david@unknown.xyz")
+AS customers(customer_id, email);
 
--- Create orders table
+-- Create the `orders` table
 CREATE OR REPLACE TEMP VIEW orders AS
 SELECT * FROM VALUES
-    (101, 1, '[{"book_id":"B01","quantity":2,"subtotal":30.0},{"book_id":"B02","quantity":1,"subtotal":15.0}]'),
-    (102, 2, '[{"book_id":"B03","quantity":1,"subtotal":20.0}]'),
-    (103, 3, '[{"book_id":"B01","quantity":3,"subtotal":45.0},{"book_id":"B04","quantity":1,"subtotal":25.0}]')
-AS orders(order_id, customer_id, books);
+    (101, ARRAY(STRUCT("Book A", 1, 10.0), STRUCT("Book B", 3, 30.0))),
+    (102, ARRAY(STRUCT("Book C", 2, 20.0), STRUCT("Book D", 1, 25.0))),
+    (103, ARRAY(STRUCT("Book E", 3, 45.0), STRUCT("Book F", 5, 75.0))),
+    (104, ARRAY(STRUCT("Book G", 1, 15.0)))
+AS orders(order_id, books);
 
--- Create books table
+-- Create the `books` table
 CREATE OR REPLACE TEMP VIEW books AS
 SELECT * FROM VALUES
-    ('B01', 'Spark SQL Mastery', 'John Smith', 'Technology'),
-    ('B02', 'Python for Data Science', 'Jane Doe', 'Programming'),
-    ('B03', 'Machine Learning 101', 'Alice Wonder', 'AI & ML'),
-    ('B04', 'Database Design Principles', 'Mike Ross', 'Technology')
-AS books(book_id, title, author, category);
+    ("Book A", "Fiction", 10.0),
+    ("Book B", "Non-Fiction", 20.0),
+    ("Book C", "Fiction", 15.0),
+    ("Book D", "Science", 25.0),
+    ("Book E", "History", 30.0),
+    ("Book F", "Fiction", 25.0),
+    ("Book G", "Non-Fiction", 20.0)
+AS books(title, genre, price);
+
+-- COMMAND ----------
+
+-- Verify the data
+SELECT * FROM customers;
+SELECT * FROM orders;
+SELECT * FROM books;
 
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC 
--- MAGIC ### Step 2: Describe the Customers Table
--- MAGIC View the schema and structure of the customers table.
-
--- COMMAND ----------
-
-DESCRIBE EXTENDED customers;
+-- MAGIC
+-- MAGIC ### Step 2: Higher-Order Functions
+-- MAGIC Higher-order functions work directly with complex data types like arrays or maps. Let's explore filtering and transforming arrays.
 
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC 
--- MAGIC ### Step 3: Extract Nested JSON Data
--- MAGIC Use JSON parsing functions to extract and flatten the nested structure of the `profile` column.
+-- MAGIC #### 2.1 Filtering Arrays
+-- MAGIC The `FILTER` function is used to extract elements from an array that meet a specific condition.
 
 -- COMMAND ----------
 
--- Parse the JSON string in the profile column
-CREATE OR REPLACE TEMP VIEW customers_parsed AS
-SELECT
-    customer_id,
-    email,
-    from_json(profile, schema_of_json('{"first_name":"John","last_name":"Doe","address":{"street":"123 Elm St","city":"Springfield","country":"USA"}}')) AS parsed_profile
-FROM customers;
-
--- Flatten the JSON data into separate columns
-SELECT
-    customer_id,
-    email,
-    parsed_profile.first_name AS first_name,
-    parsed_profile.last_name AS last_name,
-    parsed_profile.address.street AS street,
-    parsed_profile.address.city AS city,
-    parsed_profile.address.country AS country
-FROM customers_parsed;
-
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC 
--- MAGIC ### Step 4: Array Transformations in the Orders Table
--- MAGIC Learn to filter and transform arrays within the `books` column.
-
--- COMMAND ----------
-
--- Filter books where quantity >= 2
+-- Filtering books where quantity is greater than or equal to 2
 SELECT
     order_id,
     books,
-    FILTER(from_json(books, 'ARRAY<STRUCT<book_id: STRING, quantity: INT, subtotal: FLOAT>>'), b -> b.quantity >= 2) AS filtered_books
+    FILTER(books, b -> b.quantity >= 2) AS multiple_copies
 FROM orders;
 
--- Apply a discount on subtotals in the books array
+-- COMMAND ----------
+
+-- Applying a WHERE clause to exclude empty arrays
+SELECT order_id, multiple_copies
+FROM (
+    SELECT
+        order_id,
+    FILTER(books, b -> b.quantity >= 2) AS multiple_copies
+    FROM orders
+)
+WHERE SIZE(multiple_copies) > 0;
+
+-- COMMAND ----------
+
+-- MAGIC %md
+-- MAGIC #### 2.2 Transforming Arrays
+-- MAGIC The `TRANSFORM` function applies a transformation to every element in an array and produces a new array.
+
+-- COMMAND ----------
+
+-- Applying a 20% discount to the `subtotal` of each book in the array
 SELECT
     order_id,
     books,
     TRANSFORM(
-        from_json(books, 'ARRAY<STRUCT<book_id: STRING, quantity: INT, subtotal: FLOAT>>'),
-        b -> named_struct('book_id', b.book_id, 'quantity', b.quantity, 'subtotal', b.subtotal * 0.9)
+        books,
+        b -> STRUCT(b.title, b.quantity, CAST(b.subtotal * 0.8 AS DECIMAL(10, 2)))
     ) AS discounted_books
 FROM orders;
 
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC 
--- MAGIC ### Step 5: User-Defined Functions (UDFs)
--- MAGIC Create and use UDFs to add custom logic.
+-- MAGIC
+-- MAGIC ### Step 3: User Defined Functions (UDF)
+-- MAGIC UDFs allow registering custom logic as reusable functions in SQL queries.
 
 -- COMMAND ----------
 
--- Create a UDF to extract domain from email
-CREATE OR REPLACE FUNCTION extract_domain(email STRING)
+-- Creating a UDF to extract domain names from email addresses
+CREATE OR REPLACE FUNCTION get_url(email STRING)
 RETURNS STRING
-RETURN split(email, '@')[1];
+RETURN CONCAT("https://www.", SPLIT(email, "@")[1]);
 
--- Use the UDF to extract domain
-SELECT email, extract_domain(email) AS domain
+-- Using the UDF to extract domains
+SELECT email, get_url(email) AS domain_url
 FROM customers;
 
 -- COMMAND ----------
 
--- Create a UDF to categorise email domains
-CREATE OR REPLACE FUNCTION domain_category(email STRING)
+-- Describing the function
+DESCRIBE FUNCTION get_url;
+
+-- Describing the function in detail
+DESCRIBE FUNCTION EXTENDED get_url;
+
+-- COMMAND ----------
+
+-- Creating a UDF to categorise domains by type
+CREATE OR REPLACE FUNCTION site_type(email STRING)
 RETURNS STRING
-RETURN CASE
-    WHEN email LIKE "%.com" THEN "Commercial"
-    WHEN email LIKE "%.org" THEN "Organisation"
-    WHEN email LIKE "%.edu" THEN "Education"
-    ELSE "Other"
+RETURN CASE 
+    WHEN email LIKE "%.com" THEN "Commercial Business"
+    WHEN email LIKE "%.org" THEN "Non-Profit Organisation"
+    WHEN email LIKE "%.edu" THEN "Educational Institution"
+    ELSE CONCAT("Unknown Domain Type: ", SPLIT(email, "@")[1])
 END;
 
--- Use the UDF for categorisation
-SELECT email, domain_category(email) AS category
+-- Using the UDF to categorise domains
+SELECT email, site_type(email) AS domain_category
 FROM customers;
 
 -- COMMAND ----------
 
 -- MAGIC %md
--- MAGIC 
--- MAGIC ### Step 6: Explode Arrays and Join Operations
--- MAGIC Learn to use `explode` and join tables for enriched datasets.
+-- MAGIC
+-- MAGIC ### Step 4: Dropping Functions
+-- MAGIC Clean up by dropping the user-defined functions.
 
 -- COMMAND ----------
 
--- Explode the books array
-CREATE OR REPLACE TEMP VIEW exploded_books AS
-SELECT
-    order_id,
-    customer_id,
-    EXPLODE(from_json(books, 'ARRAY<STRUCT<book_id: STRING, quantity: INT, subtotal: FLOAT>>')) AS book
-FROM orders;
-
--- Join with books table
-SELECT
-    e.order_id,
-    e.customer_id,
-    e.book.book_id,
-    e.book.quantity,
-    e.book.subtotal,
-    b.title,
-    b.author,
-    b.category
-FROM exploded_books e
-INNER JOIN books b
-ON e.book.book_id = b.book_id;
-
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC 
--- MAGIC ### Step 7: Set Operations and Pivot Tables
--- MAGIC Use set operations like `UNION` and create pivot tables for analysis.
-
--- COMMAND ----------
-
--- Union operation on orders table (simulate old and new data)
-SELECT * FROM orders
-UNION
-SELECT * FROM VALUES
-    (104, 1, '[{"book_id":"B05","quantity":1,"subtotal":12.0}]')
-AS orders(order_id, customer_id, books);
-
--- Pivot table for aggregated analysis
-SELECT *
-FROM (
-    SELECT customer_id, order_id, book.book_id, book.quantity
-    FROM exploded_books
-) PIVOT (
-    SUM(quantity) FOR book_id IN ('B01', 'B02', 'B03', 'B04', 'B05')
-);
+DROP FUNCTION get_url;
+DROP FUNCTION site_type;

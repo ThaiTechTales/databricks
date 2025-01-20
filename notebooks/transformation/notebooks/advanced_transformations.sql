@@ -270,3 +270,54 @@ FROM (
 
 -- View the transactions table
 SELECT * FROM transactions;
+
+
+-- Testing the Pivot operation with basic table
+
+-- Create the sales table
+CREATE OR REPLACE TABLE sales (
+       customer VARCHAR(50),
+       product VARCHAR(50),
+       month VARCHAR(10),
+       amount INT
+);
+
+-- Insert data into the sales table
+INSERT INTO sales (customer, product, month, amount) VALUES
+('Alice', 'Laptop', 'Jan', 1200),
+('Alice', 'Phone', 'Jan', 800),
+('Bob', 'Laptop', 'Feb', 1500),
+('Bob', 'Tablet', 'Feb', 700),
+('Alice', 'Laptop', 'Mar', 1300),
+('Bob', 'Phone', 'Mar', 900);
+
+
+-- COMMAND ----------
+
+-- Testing the Pivot operation with basic table
+
+SELECT *
+FROM sales;
+
+-- COMMAND ----------
+
+-- Testing the Pivot operation with basic table
+
+-- Pivot the data so that:
+- Each month becomes a column.
+-- The values in these columns represent the sum of amount for each customer and product.
+
+-- Columns to Pivot:
+-- The PIVOT clause specifies that month values ('Jan', 'Feb', 'Mar') will become columns.
+-- Aggregation:
+-- The SUM(amount) function calculates the total amount for each combination of customer, product, and month.
+-- Nulls for Missing Data:
+-- If there’s no data for a specific combination (e.g., Alice bought nothing in Feb), the result is NULL.
+
+SELECT *
+FROM (
+    SELECT customer, product, month, amount
+    FROM sales
+) PIVOT (
+    SUM(amount) FOR month IN ('Jan', 'Feb', 'Mar')
+);

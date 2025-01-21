@@ -13,7 +13,7 @@
 
 -- Create a database to store our tables
 CREATE DATABASE IF NOT EXISTS bookstore;
-USE bookstore;
+USE bookstore; -- Set the current database context to bookstore
 
 -- Drop and recreate the "books" table for this demonstration
 DROP TABLE IF EXISTS books;
@@ -41,9 +41,9 @@ INSERT INTO books VALUES
 -- COMMAND ----------
 
 -- MAGIC %python
-(spark.readStream
-    .table("books")
-    .createOrReplaceTempView("books_streaming_tmp_vw"))
+-- MAGIC (spark.readStream
+-- MAGIC     .table("books") # 
+-- MAGIC     .createOrReplaceTempView("books_streaming_tmp_vw"))
 
 -- COMMAND ----------
 
@@ -55,7 +55,6 @@ INSERT INTO books VALUES
 -- Query the streaming temporary view to display data
 -- The query will keep running to listen for new data
 -- Stop it manually after inspection
--- MAGIC %sql
 SELECT * FROM books_streaming_tmp_vw;
 
 -- COMMAND ----------
@@ -66,7 +65,6 @@ SELECT * FROM books_streaming_tmp_vw;
 -- COMMAND ----------
 
 -- Apply transformations to count total books per author
--- MAGIC %sql
 SELECT author, COUNT(book_id) AS total_books
 FROM books_streaming_tmp_vw
 GROUP BY author;
@@ -80,8 +78,7 @@ GROUP BY author;
 
 -- Demonstrating unsupported operation: Sorting streaming data
 -- Sorting is not supported directly in streaming queries
--- Use windowing or watermarking for advanced operations (out of scope here)
--- MAGIC %sql
+-- Use windowing or watermarking for advanced operations
 -- SELECT * FROM books_streaming_tmp_vw ORDER BY author;
 
 -- COMMAND ----------
@@ -92,7 +89,6 @@ GROUP BY author;
 -- COMMAND ----------
 
 -- Create another streaming temporary view for aggregated data
--- MAGIC %sql
 CREATE OR REPLACE TEMP VIEW author_counts_tmp_vw AS (
     SELECT author, COUNT(book_id) AS total_books
     FROM books_streaming_tmp_vw
@@ -101,14 +97,20 @@ CREATE OR REPLACE TEMP VIEW author_counts_tmp_vw AS (
 
 -- COMMAND ----------
 
--- Persist the streaming query results into a Delta table
 -- MAGIC %python
-(spark.table("author_counts_tmp_vw")
-    .writeStream
-    .trigger(processingTime="4 seconds")
-    .outputMode("complete")
-    .option("checkpointLocation", "dbfs:/mnt/demo/author_counts_checkpoint")
-    .table("author_counts"))
+-- MAGIC # Removing the checkpoint directry
+-- MAGIC dbutils.fs.rm("dbfs:/mnt/demo/author_counts_checkpoint", True)
+
+-- COMMAND ----------
+
+-- MAGIC %python
+-- MAGIC # Persist the streaming query results into a Delta table
+-- MAGIC (spark.table("author_counts_tmp_vw") # Data from the author_counts_tmp_vw streaming temporary view is continuously read as a stream.
+-- MAGIC     .writeStream
+-- MAGIC     .trigger(processingTime="4 seconds") # When the system processes the next set of data
+-- MAGIC     .outputMode("complete") # Configures the output mode of the streaming query. "complete" mode writes the entire result of the aggregation query (e.g., all author counts) every time it processes a new batch of data.
+-- MAGIC     .option("checkpointLocation", "dbfs:/mnt/demo/author_counts_checkpoint" ) # Stores the current state of the streaming job in cloud storage. It’s like a bookmark in a book—if you stop reading, you know where to pick up next.
+-- MAGIC     .table("author_counts")) # Delta table stores the aggregated data for querying or analysis.
 
 -- COMMAND ----------
 
@@ -118,7 +120,6 @@ CREATE OR REPLACE TEMP VIEW author_counts_tmp_vw AS (
 -- COMMAND ----------
 
 -- Query the persisted table to view results
--- MAGIC %sql
 SELECT * FROM author_counts;
 
 -- COMMAND ----------
@@ -129,7 +130,6 @@ SELECT * FROM author_counts;
 -- COMMAND ----------
 
 -- Add new data to the "books" table
--- MAGIC %sql
 INSERT INTO books VALUES
     ("B06", "Databricks for All", "John Doe", "Data Science", 22.0),
     ("B07", "Mastering Delta Lake", "Jane Smith", "Data Engineering", 45.0),
@@ -142,15 +142,15 @@ INSERT INTO books VALUES
 
 -- COMMAND ----------
 
--- Use batch processing for a new streaming query
 -- MAGIC %python
-(spark.table("author_counts_tmp_vw")
-    .writeStream
-    .trigger(availableNow=True)
-    .outputMode("complete")
-    .option("checkpointLocation", "dbfs:/mnt/demo/author_counts_checkpoint")
-    .table("author_counts")
-    .awaitTermination())
+-- MAGIC # Use batch processing for a new streaming query
+-- MAGIC (spark.table("author_counts_tmp_vw")
+-- MAGIC     .writeStream
+-- MAGIC     .trigger(availableNow=True)
+-- MAGIC     .outputMode("complete")
+-- MAGIC     .option("checkpointLocation", "dbfs:/mnt/demo/author_counts_checkpoint")
+-- MAGIC     .table("author_counts")
+-- MAGIC     .awaitTermination())
 
 -- COMMAND ----------
 
@@ -160,5 +160,4 @@ INSERT INTO books VALUES
 -- COMMAND ----------
 
 -- Query the updated "author_counts" table to view the final results
--- MAGIC %sql
 SELECT * FROM author_counts;

@@ -12,26 +12,27 @@
 -- MAGIC Before starting, ensure the source directory and required tables are created.
 
 -- COMMAND ----------
+
 -- MAGIC %python
-from pyspark.sql.functions import *
-from datetime import datetime
-
-# Directory setup
-source_dir = "dbfs:/mnt/demo/sales-raw"
-checkpoint_dir = "dbfs:/mnt/demo/sales_checkpoint"
-
-# Helper function to simulate new data ingestion
-def generate_sample_data(directory, file_count=1):
-    for i in range(file_count):
-        df = spark.range(1000).withColumn("order_id", expr("id"))
-        df = df.withColumn("order_date", lit(datetime.now()))
-        df = df.withColumn("customer_id", expr("id % 100"))
-        df = df.withColumn("amount", expr("rand() * 100"))
-        df.write.mode("overwrite").parquet(f"{directory}/file_{i}.parquet")
-
-# Create initial dataset
-dbutils.fs.mkdirs(source_dir)
-generate_sample_data(source_dir)
+-- MAGIC from pyspark.sql.functions import *
+-- MAGIC from datetime import datetime
+-- MAGIC
+-- MAGIC # Directory setup
+-- MAGIC source_dir = "dbfs:/mnt/demo/sales-raw"
+-- MAGIC checkpoint_dir = "dbfs:/mnt/demo/sales_checkpoint"
+-- MAGIC
+-- MAGIC # Helper function to simulate new data ingestion
+-- MAGIC def generate_sample_data(directory, file_count=1):
+-- MAGIC     for i in range(file_count):
+-- MAGIC         df = spark.range(1000).withColumn("order_id", expr("id"))
+-- MAGIC         df = df.withColumn("order_date", lit(datetime.now()))
+-- MAGIC         df = df.withColumn("customer_id", expr("id % 100"))
+-- MAGIC         df = df.withColumn("amount", expr("rand() * 100"))
+-- MAGIC         df.write.mode("overwrite").parquet(f"{directory}/file_{i}.parquet")
+-- MAGIC
+-- MAGIC # Create initial dataset
+-- MAGIC dbutils.fs.mkdirs(source_dir)
+-- MAGIC generate_sample_data(source_dir)
 
 -- COMMAND ----------
 
@@ -41,9 +42,10 @@ generate_sample_data(source_dir)
 -- MAGIC Listing all the files in the source directory to confirm the setup.
 
 -- COMMAND ----------
+
 -- MAGIC %python
-files = dbutils.fs.ls(source_dir)
-display(files)
+-- MAGIC files = dbutils.fs.ls(source_dir)
+-- MAGIC display(files)
 
 -- COMMAND ----------
 
@@ -53,17 +55,18 @@ display(files)
 -- MAGIC The following code demonstrates the use of Auto Loader to read and process data incrementally.
 
 -- COMMAND ----------
+
 -- MAGIC %python
-(spark.readStream
-    .format("cloudFiles")  -- Use Auto Loader format
-    .option("cloudFiles.format", "parquet")  -- Source file format
-    .option("cloudFiles.schemaLocation", checkpoint_dir)  -- Schema storage for incremental updates
-    .load(source_dir)  -- Source directory
-    .writeStream
-    .option("checkpointLocation", checkpoint_dir)  -- Checkpoint directory
-    .outputMode("append")  -- Append mode for incremental processing
-    .table("sales_updates")  -- Target table
-)
+-- MAGIC (spark.readStream
+-- MAGIC     .format("cloudFiles")  # Use Auto Loader format
+-- MAGIC     .option("cloudFiles.format", "parquet")  # Source file format
+-- MAGIC     .option("cloudFiles.schemaLocation", checkpoint_dir)  # Schema storage for incremental updates
+-- MAGIC     .load(source_dir)#-- Source directory
+-- MAGIC     .writeStream
+-- MAGIC     .option("checkpointLocation", checkpoint_dir)  # Checkpoint directory
+-- MAGIC     .outputMode("append")  # Append mode for incremental processing
+-- MAGIC     .table("sales_updates")  # Target table
+-- MAGIC )
 
 -- COMMAND ----------
 
@@ -73,11 +76,11 @@ display(files)
 -- MAGIC Verify the data ingestion process by querying the target table.
 
 -- COMMAND ----------
--- MAGIC %sql
+
 SELECT * FROM sales_updates LIMIT 10;
 
 -- COMMAND ----------
--- MAGIC %sql
+
 SELECT count(*) AS total_records FROM sales_updates;
 
 -- COMMAND ----------
@@ -88,13 +91,15 @@ SELECT count(*) AS total_records FROM sales_updates;
 -- MAGIC Add new data files to the source directory to simulate real-time ingestion.
 
 -- COMMAND ----------
+
 -- MAGIC %python
-generate_sample_data(source_dir, file_count=2)
+-- MAGIC generate_sample_data(source_dir, file_count=2)
 
 -- COMMAND ----------
+
 -- MAGIC %python
-files = dbutils.fs.ls(source_dir)
-display(files)
+-- MAGIC files = dbutils.fs.ls(source_dir)
+-- MAGIC display(files)
 
 -- COMMAND ----------
 
@@ -104,7 +109,7 @@ display(files)
 -- MAGIC Confirm the new data is ingested by the Auto Loader stream.
 
 -- COMMAND ----------
--- MAGIC %sql
+
 SELECT count(*) AS total_records FROM sales_updates;
 
 -- COMMAND ----------
@@ -115,7 +120,7 @@ SELECT count(*) AS total_records FROM sales_updates;
 -- MAGIC Explore the table history to understand how Delta Lake manages versions.
 
 -- COMMAND ----------
--- MAGIC %sql
+
 DESCRIBE HISTORY sales_updates;
 
 -- COMMAND ----------
@@ -126,10 +131,11 @@ DESCRIBE HISTORY sales_updates;
 -- MAGIC Remove the created resources to maintain a clean environment.
 
 -- COMMAND ----------
--- MAGIC %sql
+
 DROP TABLE IF EXISTS sales_updates;
 
 -- COMMAND ----------
+
 -- MAGIC %python
-dbutils.fs.rm(source_dir, True)
-dbutils.fs.rm(checkpoint_dir, True)
+-- MAGIC dbutils.fs.rm(source_dir, True)
+-- MAGIC dbutils.fs.rm(checkpoint_dir, True)

@@ -2,7 +2,7 @@
 -- MAGIC %md-sandbox
 -- MAGIC
 -- MAGIC ## Incremental Data Ingestion Using Auto Loader
--- MAGIC This notebook demonstrates how to use Auto Loader in Databricks for incremental data ingestion.
+-- MAGIC This notebook demonstrates how to use Auto Loader in Databricks for incremental data ingestion with a simplified dataset.
 
 -- COMMAND ----------
 
@@ -14,115 +14,129 @@
 -- COMMAND ----------
 
 -- MAGIC %python
--- MAGIC from pyspark.sql.functions import *
--- MAGIC from datetime import datetime
--- MAGIC
--- MAGIC # Directory setup
--- MAGIC source_dir = "dbfs:/mnt/demo/simple-sales-raw"
--- MAGIC checkpoint_dir = "dbfs:/mnt/demo/simple-sales-checkpoint"
--- MAGIC
--- MAGIC # Helper function to simulate new data ingestion
--- MAGIC def generate_simple_data(directory, file_count=1):
--- MAGIC     for i in range(file_count):
--- MAGIC         df = (spark.createDataFrame([
--- MAGIC             (1, f"2025-01-15", 10.5),
--- MAGIC             (2, f"2025-01-15", 20.0),
--- MAGIC             (3, f"2025-01-15", 15.0)
--- MAGIC         ], ["order_id", "order_date", "amount"]))
--- MAGIC         df.write.mode("overwrite").parquet(f"{directory}/file_{i}.parquet")
--- MAGIC
--- MAGIC # Create initial dataset
--- MAGIC dbutils.fs.mkdirs(source_dir)
--- MAGIC generate_simple_data(source_dir)
+# Import required modules
+from pyspark.sql.functions import *
+from datetime import datetime
+
+# Define source and checkpoint directories
+source_dir = "dbfs:/mnt/demo/simple-data-raw"
+checkpoint_dir = "dbfs:/mnt/demo/simple-data-checkpoint"
+
+# Recreate source directory
+dbutils.fs.mkdirs(source_dir)
+
+# Helper function to generate simple data
+def generate_simple_data(directory, file_count=1):
+    for i in range(file_count):
+        df = (spark.createDataFrame([
+            (101, "2025-01-01", 99.99),
+            (102, "2025-01-02", 49.50),
+            (103, "2025-01-03", 29.99)
+        ], ["id", "date", "value"])
+        .withColumn("date", col("date").cast("date"))  # Ensure date format
+        .withColumn("id", col("id").cast("int"))  # Ensure id is int
+        .withColumn("value", col("value").cast("double")))  # Ensure value is double
+        df.write.mode("overwrite").parquet(f"{directory}/file_{i}.parquet")
+
+# Generate initial dataset
+generate_simple_data(source_dir, file_count=1)
 
 -- COMMAND ----------
 
 -- MAGIC %md
 -- MAGIC
 -- MAGIC ## 2. Explore the Source Directory
--- MAGIC Listing all the files in the source directory to confirm the setup.
+-- MAGIC List the files in the source directory to confirm data generation.
 
 -- COMMAND ----------
 
 -- MAGIC %python
--- MAGIC files = dbutils.fs.ls(source_dir)
--- MAGIC display(files)
+# List files in the source directory
+files = dbutils.fs.ls(source_dir)
+display(files)
 
 -- COMMAND ----------
 
 -- MAGIC %md
 -- MAGIC
 -- MAGIC ## 3. Auto Loader Stream Setup
--- MAGIC The following code demonstrates the use of Auto Loader to read and process data incrementally.
+-- MAGIC Use Auto Loader to ingest data incrementally.
 
 -- COMMAND ----------
 
 -- MAGIC %python
--- MAGIC (spark.readStream
--- MAGIC     .format("cloudFiles")  # Use Auto Loader format
--- MAGIC     .option("cloudFiles.format", "parquet")  # Source file format
--- MAGIC     .option("cloudFiles.schemaLocation", checkpoint_dir)  # Schema storage for incremental updates
--- MAGIC     .load(source_dir)  # Source directory
--- MAGIC     .writeStream
--- MAGIC     .option("checkpointLocation", checkpoint_dir)  # Checkpoint directory
--- MAGIC     .outputMode("append")  # Append mode for incremental processing
--- MAGIC     .table("simple_sales_updates")  # Target table
--- MAGIC )
+# Define the Auto Loader streaming query
+streaming_df = (spark.readStream
+    .format("cloudFiles")  # Auto Loader format
+    .option("cloudFiles.format", "parquet")  # Source file format
+    .option("cloudFiles.schemaLocation", checkpoint_dir)  # Schema storage
+    .load(source_dir)  # Source directory
+)
+
+# Write the stream to a Delta table
+(streaming_df.writeStream
+    .option("checkpointLocation", checkpoint_dir)  # Checkpoint directory
+    .outputMode("append")  # Append new records
+    .toTable("simple_data_table")  # Target Delta table
+)
 
 -- COMMAND ----------
 
 -- MAGIC %md
 -- MAGIC
 -- MAGIC ## 4. Query the Target Table
--- MAGIC Verify the data ingestion process by querying the target table.
+-- MAGIC Verify that the data has been ingested.
 
 -- COMMAND ----------
 
-SELECT * FROM simple_sales_updates LIMIT 10;
+-- MAGIC %sql
+SELECT * FROM simple_data_table;
 
 -- COMMAND ----------
 
-SELECT count(*) AS total_records FROM simple_sales_updates;
+-- MAGIC %sql
+SELECT COUNT(*) AS total_records FROM simple_data_table;
 
 -- COMMAND ----------
 
 -- MAGIC %md
 -- MAGIC
 -- MAGIC ## 5. Simulating New Data Arrival
--- MAGIC Add new data files to the source directory to simulate real-time ingestion.
+-- MAGIC Add new data files to simulate real-time ingestion.
 
 -- COMMAND ----------
 
 -- MAGIC %python
--- MAGIC generate_simple_data(source_dir, file_count=2)
+# Generate additional data
+generate_simple_data(source_dir, file_count=2)
 
--- COMMAND ----------
-
--- MAGIC %python
--- MAGIC files = dbutils.fs.ls(source_dir)
--- MAGIC display(files)
+# List the updated source directory
+files = dbutils.fs.ls(source_dir)
+display(files)
 
 -- COMMAND ----------
 
 -- MAGIC %md
 -- MAGIC
--- MAGIC ## 6. Validate Ingestion of New Data
--- MAGIC Confirm the new data is ingested by the Auto Loader stream.
+-- MAGIC ## 6. Validate New Data Ingestion
+-- MAGIC Confirm that the new data has been processed by the stream.
 
 -- COMMAND ----------
 
-SELECT count(*) AS total_records FROM simple_sales_updates;
+-- MAGIC %sql
+SELECT COUNT(*) AS total_records FROM simple_data_table;
 
 -- COMMAND ----------
 
 -- MAGIC %md
 -- MAGIC
 -- MAGIC ## 7. Table History
--- MAGIC Explore the table history to understand how Delta Lake manages versions.
+-- MAGIC Explore the history of the Delta table to see schema versions and data changes.
 
 -- COMMAND ----------
 
-DESCRIBE HISTORY simple_sales_updates;
+-- MAGIC %sql
+DESCRIBE HISTORY simple_data_table;
 
 -- COMMAND ----------
 
@@ -133,10 +147,12 @@ DESCRIBE HISTORY simple_sales_updates;
 
 -- COMMAND ----------
 
-DROP TABLE IF EXISTS simple_sales_updates;
+-- MAGIC %sql
+DROP TABLE IF EXISTS simple_data_table;
 
 -- COMMAND ----------
 
 -- MAGIC %python
--- MAGIC dbutils.fs.rm(source_dir, True)
--- MAGIC dbutils.fs.rm(checkpoint_dir, True)
+# Clean up the source and checkpoint directories
+dbutils.fs.rm(source_dir, recurse=True)
+dbutils.fs.rm(checkpoint_dir, recurse=True)

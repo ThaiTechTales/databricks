@@ -18,21 +18,22 @@
 -- MAGIC from datetime import datetime
 -- MAGIC
 -- MAGIC # Directory setup
--- MAGIC source_dir = "dbfs:/mnt/demo/sales-raw"
--- MAGIC checkpoint_dir = "dbfs:/mnt/demo/sales_checkpoint"
+-- MAGIC source_dir = "dbfs:/mnt/demo/simple-sales-raw"
+-- MAGIC checkpoint_dir = "dbfs:/mnt/demo/simple-sales-checkpoint"
 -- MAGIC
 -- MAGIC # Helper function to simulate new data ingestion
--- MAGIC def generate_sample_data(directory, file_count=1):
+-- MAGIC def generate_simple_data(directory, file_count=1):
 -- MAGIC     for i in range(file_count):
--- MAGIC         df = spark.range(1000).withColumn("order_id", expr("id"))
--- MAGIC         df = df.withColumn("order_date", lit(datetime.now()))
--- MAGIC         df = df.withColumn("customer_id", expr("id % 100"))
--- MAGIC         df = df.withColumn("amount", expr("rand() * 100"))
+-- MAGIC         df = (spark.createDataFrame([
+-- MAGIC             (1, f"2025-01-15", 10.5),
+-- MAGIC             (2, f"2025-01-15", 20.0),
+-- MAGIC             (3, f"2025-01-15", 15.0)
+-- MAGIC         ], ["order_id", "order_date", "amount"]))
 -- MAGIC         df.write.mode("overwrite").parquet(f"{directory}/file_{i}.parquet")
 -- MAGIC
 -- MAGIC # Create initial dataset
 -- MAGIC dbutils.fs.mkdirs(source_dir)
--- MAGIC generate_sample_data(source_dir)
+-- MAGIC generate_simple_data(source_dir)
 
 -- COMMAND ----------
 
@@ -61,11 +62,11 @@
 -- MAGIC     .format("cloudFiles")  # Use Auto Loader format
 -- MAGIC     .option("cloudFiles.format", "parquet")  # Source file format
 -- MAGIC     .option("cloudFiles.schemaLocation", checkpoint_dir)  # Schema storage for incremental updates
--- MAGIC     .load(source_dir)#-- Source directory
+-- MAGIC     .load(source_dir)  # Source directory
 -- MAGIC     .writeStream
 -- MAGIC     .option("checkpointLocation", checkpoint_dir)  # Checkpoint directory
 -- MAGIC     .outputMode("append")  # Append mode for incremental processing
--- MAGIC     .table("sales_updates")  # Target table
+-- MAGIC     .table("simple_sales_updates")  # Target table
 -- MAGIC )
 
 -- COMMAND ----------
@@ -77,11 +78,11 @@
 
 -- COMMAND ----------
 
-SELECT * FROM sales_updates LIMIT 10;
+SELECT * FROM simple_sales_updates LIMIT 10;
 
 -- COMMAND ----------
 
-SELECT count(*) AS total_records FROM sales_updates;
+SELECT count(*) AS total_records FROM simple_sales_updates;
 
 -- COMMAND ----------
 
@@ -93,7 +94,7 @@ SELECT count(*) AS total_records FROM sales_updates;
 -- COMMAND ----------
 
 -- MAGIC %python
--- MAGIC generate_sample_data(source_dir, file_count=2)
+-- MAGIC generate_simple_data(source_dir, file_count=2)
 
 -- COMMAND ----------
 
@@ -110,7 +111,7 @@ SELECT count(*) AS total_records FROM sales_updates;
 
 -- COMMAND ----------
 
-SELECT count(*) AS total_records FROM sales_updates;
+SELECT count(*) AS total_records FROM simple_sales_updates;
 
 -- COMMAND ----------
 
@@ -121,7 +122,7 @@ SELECT count(*) AS total_records FROM sales_updates;
 
 -- COMMAND ----------
 
-DESCRIBE HISTORY sales_updates;
+DESCRIBE HISTORY simple_sales_updates;
 
 -- COMMAND ----------
 
@@ -132,7 +133,7 @@ DESCRIBE HISTORY sales_updates;
 
 -- COMMAND ----------
 
-DROP TABLE IF EXISTS sales_updates;
+DROP TABLE IF EXISTS simple_sales_updates;
 
 -- COMMAND ----------
 

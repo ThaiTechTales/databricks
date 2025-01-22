@@ -19,8 +19,8 @@ from pyspark.sql.functions import *
 from datetime import datetime
 
 # Define source and checkpoint directories
-source_dir = "dbfs:/mnt/demo/simple-data-raw"
-checkpoint_dir = "dbfs:/mnt/demo/simple-data-checkpoint"
+source_dir = "dbfs:/mnt/demo/sales-raw"
+checkpoint_dir = "dbfs:/mnt/demo/sales-checkpoint"
 
 # Recreate source directory
 dbutils.fs.mkdirs(source_dir)
@@ -45,7 +45,24 @@ generate_simple_data(source_dir, file_count=1)
 
 -- MAGIC %md
 -- MAGIC
--- MAGIC ## 2. Explore the Source Directory
+-- MAGIC ## 2. Creating the Target Delta Table
+-- MAGIC The `sales_updates` Delta table will store the ingested data. This ensures the table schema aligns with the source data.
+
+-- COMMAND ----------
+
+-- MAGIC %sql
+-- Create the target Delta table explicitly
+CREATE TABLE IF NOT EXISTS sales_updates (
+    id INT,
+    date DATE,
+    value DOUBLE
+) USING DELTA;
+
+-- COMMAND ----------
+
+-- MAGIC %md
+-- MAGIC
+-- MAGIC ## 3. Explore the Source Directory
 -- MAGIC List the files in the source directory to confirm data generation.
 
 -- COMMAND ----------
@@ -59,8 +76,8 @@ display(files)
 
 -- MAGIC %md
 -- MAGIC
--- MAGIC ## 3. Auto Loader Stream Setup
--- MAGIC Use Auto Loader to ingest data incrementally.
+-- MAGIC ## 4. Auto Loader Stream Setup
+-- MAGIC Use Auto Loader to ingest data incrementally into the `sales_updates` Delta table.
 
 -- COMMAND ----------
 
@@ -73,35 +90,35 @@ streaming_df = (spark.readStream
     .load(source_dir)  # Source directory
 )
 
-# Write the stream to a Delta table
+# Write the stream to the Delta table
 (streaming_df.writeStream
     .option("checkpointLocation", checkpoint_dir)  # Checkpoint directory
     .outputMode("append")  # Append new records
-    .toTable("simple_data_table")  # Target Delta table
+    .toTable("sales_updates")  # Target Delta table
 )
 
 -- COMMAND ----------
 
 -- MAGIC %md
 -- MAGIC
--- MAGIC ## 4. Query the Target Table
--- MAGIC Verify that the data has been ingested.
+-- MAGIC ## 5. Query the Target Table
+-- MAGIC Verify that the data has been ingested into the `sales_updates` table.
 
 -- COMMAND ----------
 
 -- MAGIC %sql
-SELECT * FROM simple_data_table;
+SELECT * FROM sales_updates;
 
 -- COMMAND ----------
 
 -- MAGIC %sql
-SELECT COUNT(*) AS total_records FROM simple_data_table;
+SELECT COUNT(*) AS total_records FROM sales_updates;
 
 -- COMMAND ----------
 
 -- MAGIC %md
 -- MAGIC
--- MAGIC ## 5. Simulating New Data Arrival
+-- MAGIC ## 6. Simulating New Data Arrival
 -- MAGIC Add new data files to simulate real-time ingestion.
 
 -- COMMAND ----------
@@ -118,37 +135,37 @@ display(files)
 
 -- MAGIC %md
 -- MAGIC
--- MAGIC ## 6. Validate New Data Ingestion
+-- MAGIC ## 7. Validate New Data Ingestion
 -- MAGIC Confirm that the new data has been processed by the stream.
 
 -- COMMAND ----------
 
 -- MAGIC %sql
-SELECT COUNT(*) AS total_records FROM simple_data_table;
+SELECT COUNT(*) AS total_records FROM sales_updates;
 
 -- COMMAND ----------
 
 -- MAGIC %md
 -- MAGIC
--- MAGIC ## 7. Table History
--- MAGIC Explore the history of the Delta table to see schema versions and data changes.
+-- MAGIC ## 8. Explore Table History
+-- MAGIC Delta Lake maintains a history of all operations on the table.
 
 -- COMMAND ----------
 
 -- MAGIC %sql
-DESCRIBE HISTORY simple_data_table;
+DESCRIBE HISTORY sales_updates;
 
 -- COMMAND ----------
 
 -- MAGIC %md
 -- MAGIC
--- MAGIC ## 8. Cleaning Up Resources
+-- MAGIC ## 9. Cleaning Up Resources
 -- MAGIC Remove the created resources to maintain a clean environment.
 
 -- COMMAND ----------
 
 -- MAGIC %sql
-DROP TABLE IF EXISTS simple_data_table;
+DROP TABLE IF EXISTS sales_updates;
 
 -- COMMAND ----------
 

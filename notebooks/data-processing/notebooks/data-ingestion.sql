@@ -2,7 +2,7 @@
 -- MAGIC %md-sandbox
 -- MAGIC
 -- MAGIC ## Incremental Data Ingestion Using Auto Loader
--- MAGIC This notebook demonstrates how to use Auto Loader in Databricks for incremental data ingestion with a simple dataset.
+-- MAGIC This notebook demonstrates how to use Auto Loader in Databricks for incremental data ingestion while addressing schema mismatches.
 
 -- COMMAND ----------
 
@@ -36,9 +36,9 @@ dbutils.fs.mkdirs(source_dir)
 
 -- MAGIC %sql
 CREATE TABLE IF NOT EXISTS simple_sales_updates (
-    id INT,
+    order_id INT,
     order_date DATE,
-    value DOUBLE
+    amount DOUBLE
 ) USING DELTA;
 
 -- COMMAND ----------
@@ -60,8 +60,8 @@ def generate_simple_data(directory, file_count=1):
             (103, "2025-01-03", 29.99)
         ], ["id", "order_date", "value"])
         .withColumn("order_date", col("order_date").cast("date"))  # Ensure correct type
-        .withColumn("id", col("id").cast("int"))  # Ensure id is int
-        .withColumn("value", col("value").cast("double")))  # Ensure value is double
+        .withColumn("id", col("id").cast("int"))  # Ensure id matches Delta table schema
+        .withColumn("value", col("value").cast("double")))  # Ensure value matches schema
         df.write.mode("overwrite").parquet(f"{directory}/file_{i}.parquet")
 
 # Generate initial dataset
@@ -100,19 +100,20 @@ df.show()
 -- COMMAND ----------
 
 -- MAGIC %python
-# Define the Auto Loader streaming query with explicit type casting
+# Define the Auto Loader streaming query with schema alignment
 streaming_df = (spark.readStream
     .format("cloudFiles")  # Auto Loader format
     .option("cloudFiles.format", "parquet")  # Source file format
     .option("cloudFiles.schemaLocation", checkpoint_dir)  # Schema storage
     .load(source_dir)  # Source directory
-    .withColumn("id", col("id").cast("int"))  # Explicitly cast id to int
-    .withColumn("order_date", col("order_date").cast("date"))  # Ensure date format
-    .withColumn("value", col("value").cast("double"))  # Ensure value is double
+    .withColumnRenamed("id", "order_id")  # Rename column to match Delta table schema
+    .withColumnRenamed("value", "amount")  # Rename column to match Delta table schema
+    .select("order_id", "order_date", "amount")  # Ensure only relevant columns are written
 )
 
 (streaming_df.writeStream
     .option("checkpointLocation", checkpoint_dir)  # Checkpoint directory
+    .option("mergeSchema", "true")  # Enable schema merging
     .outputMode("append")  # Append new records
     .toTable("simple_sales_updates")  # Target Delta table
 )

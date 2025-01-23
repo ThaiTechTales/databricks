@@ -16,7 +16,7 @@
 -- Drop the table if it exists
 DROP TABLE IF EXISTS orders_bronze;
 
--- Create the Bronze Delta table with a hardcoded path
+-- Create a managed Bronze Delta table
 CREATE TABLE orders_bronze (
     order_id INT,
     customer_id INT,
@@ -25,62 +25,79 @@ CREATE TABLE orders_bronze (
     order_timestamp LONG,
     arrival_time TIMESTAMP,
     source_file STRING
-) USING DELTA
-LOCATION 'dbfs:/mnt/demo/bronze';
+) USING DELTA;
 
 -- COMMAND ----------
 
 -- MAGIC %python
-# Simulate raw data for streaming
-from datetime import datetime
-from pyspark.sql import SparkSession
-
-spark = SparkSession.builder.getOrCreate()
-
-# Function to generate raw data
-def generate_raw_data(directory, file_id):
-    raw_data = [
-        (file_id * 10 + 1, 101, 1, 2, int(datetime(2025, 1, 1).timestamp())),
-        (file_id * 10 + 2, 102, 2, 1, int(datetime(2025, 1, 2).timestamp())),
-        (file_id * 10 + 3, 103, 3, 3, int(datetime(2025, 1, 3).timestamp())),
-    ]
-    columns = ["order_id", "customer_id", "book_id", "quantity", "order_timestamp"]
-    df = spark.createDataFrame(raw_data, columns)
-    df.write.mode("overwrite").parquet(f"dbfs:/mnt/demo/raw/orders_{file_id}.parquet")
-
-# Generate the initial batch of raw data
-generate_raw_data("dbfs:/mnt/demo/raw", 1)
+-- MAGIC # Simulate raw data for streaming
+-- MAGIC from datetime import datetime
+-- MAGIC from pyspark.sql import SparkSession
+-- MAGIC from pyspark.sql.types import StructType, StructField, IntegerType, LongType
+-- MAGIC
+-- MAGIC spark = SparkSession.builder.getOrCreate()
+-- MAGIC
+-- MAGIC # Define the schema explicitly
+-- MAGIC raw_data_schema = StructType([
+-- MAGIC     StructField("order_id", IntegerType(), True),
+-- MAGIC     StructField("customer_id", IntegerType(), True),
+-- MAGIC     StructField("book_id", IntegerType(), True),
+-- MAGIC     StructField("quantity", IntegerType(), True),
+-- MAGIC     StructField("order_timestamp", LongType(), True),  # Use LongType for timestamp
+-- MAGIC ])
+-- MAGIC
+-- MAGIC # Function to generate raw data
+-- MAGIC def generate_raw_data(directory, file_id):
+-- MAGIC     # Create raw data
+-- MAGIC     raw_data = [
+-- MAGIC         (file_id * 10 + 1, 101, 1, 2, int(datetime(2025, 1, 1).timestamp())),
+-- MAGIC         (file_id * 10 + 2, 102, 2, 1, int(datetime(2025, 1, 2).timestamp())),
+-- MAGIC         (file_id * 10 + 3, 103, 3, 3, int(datetime(2025, 1, 3).timestamp())),
+-- MAGIC     ]
+-- MAGIC     # Apply schema to ensure consistency
+-- MAGIC     df = spark.createDataFrame(raw_data, schema=raw_data_schema)
+-- MAGIC     # Write data to Parquet
+-- MAGIC     df.write.mode("overwrite").parquet(f"dbfs:/mnt/demo/raw/orders_{file_id}.parquet")
+-- MAGIC
+-- MAGIC # Generate the initial batch of raw data
+-- MAGIC generate_raw_data("dbfs:/mnt/demo/raw", 1)
+-- MAGIC
 
 -- COMMAND ----------
 
 -- MAGIC %python
-# Configure streaming source for Bronze layer using Auto Loader
-bronze_stream = (
-    spark.readStream
-    .format("cloudFiles")
-    .option("cloudFiles.format", "parquet")  # Source format
-    .option("cloudFiles.schemaLocation", "dbfs:/mnt/demo/checkpoints/bronze/schema")  # Schema checkpoint
-    .load("dbfs:/mnt/demo/raw")  # Source directory
-    .withColumn("arrival_time", current_timestamp())  # Add metadata
-    .withColumn("source_file", input_file_name())  # Add metadata
-)
-
-# Write the stream into the Bronze Delta table
-bronze_query = (
-    bronze_stream.writeStream
-    .format("delta")
-    .outputMode("append")  # Append-only mode for raw data
-    .option("checkpointLocation", "dbfs:/mnt/demo/checkpoints/bronze/checkpoint")  # Checkpoint directory
-    .toTable("orders_bronze")
-)
-
-print("Bronze streaming query started.")
+-- MAGIC dbutils.fs.ls("dbfs:/mnt/demo/raw/")
 
 -- COMMAND ----------
 
--- MAGIC %sql
+-- MAGIC %python
+-- MAGIC spark.conf.set("spark.sql.files.ignoreMissingFiles", "true")
+
+-- COMMAND ----------
+
+-- MAGIC %python
+-- MAGIC from pyspark.sql.functions import current_timestamp, input_file_name
+-- MAGIC
+-- MAGIC # Start the Bronze stream
+-- MAGIC bronze_query = (
+-- MAGIC     bronze_stream.writeStream
+-- MAGIC     .format("delta")
+-- MAGIC     .outputMode("append")  # Append-only mode
+-- MAGIC     .option("checkpointLocation", "dbfs:/mnt/demo/checkpoints/bronze/checkpoint")
+-- MAGIC     .toTable("orders_bronze")
+-- MAGIC )
+-- MAGIC
+-- MAGIC print("Bronze streaming query started.")
+-- MAGIC
+
+-- COMMAND ----------
+
 -- Verify Bronze Table
 SELECT * FROM orders_bronze;
+
+-- COMMAND ----------
+
+SELECT count(*) FROM orders_bronze;
 
 -- COMMAND ----------
 
@@ -93,7 +110,7 @@ SELECT * FROM orders_bronze;
 -- Drop the table if it exists
 DROP TABLE IF EXISTS orders_silver;
 
--- Create the Silver Delta table with a hardcoded path
+-- Create a managed Silver Delta table
 CREATE TABLE orders_silver (
     order_id INT,
     customer_id INT,
@@ -102,70 +119,109 @@ CREATE TABLE orders_silver (
     book_title STRING,
     quantity INT,
     order_timestamp TIMESTAMP
-) USING DELTA
-LOCATION 'dbfs:/mnt/demo/silver';
+) USING DELTA;
+
 
 -- COMMAND ----------
 
 -- MAGIC %python
-# Static lookup tables for enrichment
-customer_data = [
-    (101, "John Doe"),
-    (102, "Jane Smith"),
-    (103, "Bob Johnson"),
-]
-book_data = [
-    (1, "Databricks for Beginners"),
-    (2, "Advanced Spark Techniques"),
-    (3, "Delta Lake Mastery"),
-]
-
-customer_df = spark.createDataFrame(customer_data, ["customer_id", "customer_name"])
-book_df = spark.createDataFrame(book_data, ["book_id", "book_title"])
-
-customer_df.write.format("json").save("dbfs:/mnt/demo/lookup/customers")
-book_df.write.format("json").save("dbfs:/mnt/demo/lookup/books")
+-- MAGIC # Static lookup tables for enrichment
+-- MAGIC customer_data = [
+-- MAGIC     (101, "John Doe"),
+-- MAGIC     (102, "Jane Smith"),
+-- MAGIC     (103, "Bob Johnson"),
+-- MAGIC ]
+-- MAGIC book_data = [
+-- MAGIC     (1, "Databricks for Beginners"),
+-- MAGIC     (2, "Advanced Spark Techniques"),
+-- MAGIC     (3, "Delta Lake Mastery"),
+-- MAGIC ]
+-- MAGIC
+-- MAGIC customers_df = spark.createDataFrame(customer_data, ["customer_id", "customer_name"])
+-- MAGIC books_df = spark.createDataFrame(book_data, ["book_id", "book_title"])
+-- MAGIC
+-- MAGIC customers_df.write.mode("overwrite").format("delta").saveAsTable("customers_lookup")
+-- MAGIC books_df.write.mode("overwrite").format("delta").saveAsTable("books_lookup")
 
 -- COMMAND ----------
 
 -- MAGIC %python
-# Streaming transformation for Silver layer
-bronze_df = spark.readStream.table("orders_bronze")
-
-customers_df = spark.read.format("json").load("dbfs:/mnt/demo/lookup/customers")
-books_df = spark.read.format("json").load("dbfs:/mnt/demo/lookup/books")
-
-silver_stream = (
-    bronze_df
-    .join(customers_df, "customer_id")  # Join with customers
-    .join(books_df, "book_id")  # Join with books
-    .select(
-        "order_id",
-        "customer_id",
-        "customer_name",
-        "book_id",
-        "book_title",
-        "quantity",
-        from_unixtime("order_timestamp").alias("order_timestamp")
-    )
-)
-
-# Write the stream into the Silver Delta table
-silver_query = (
-    silver_stream.writeStream
-    .format("delta")
-    .outputMode("append")  # Append mode
-    .option("checkpointLocation", "dbfs:/mnt/demo/checkpoints/silver/checkpoint")
-    .toTable("orders_silver")
-)
-
-print("Silver streaming query started.")
+-- MAGIC dbutils.fs.rm("dbfs:/mnt/demo/checkpoints/silver/checkpoint", recurse=True)
 
 -- COMMAND ----------
 
--- MAGIC %sql
+-- MAGIC %python
+-- MAGIC from pyspark.sql.functions import from_unixtime
+-- MAGIC
+-- MAGIC # Transform Bronze stream to Silver stream
+-- MAGIC silver_stream = (
+-- MAGIC     spark.readStream
+-- MAGIC     .table("orders_bronze")  # Read from Bronze table
+-- MAGIC     .join(customers_delta, "customer_id")  # Join with customers
+-- MAGIC     .join(books_delta, "book_id")  # Join with books
+-- MAGIC     .select(
+-- MAGIC         "order_id",
+-- MAGIC         "customer_id",
+-- MAGIC         "customer_name",
+-- MAGIC         "book_id",
+-- MAGIC         "book_title",
+-- MAGIC         "quantity",
+-- MAGIC         from_unixtime("order_timestamp").cast("timestamp").alias("order_timestamp")  # Convert to TIMESTAMP
+-- MAGIC     )
+-- MAGIC )
+-- MAGIC
+
+-- COMMAND ----------
+
+-- MAGIC %python
+-- MAGIC # Start the Silver stream
+-- MAGIC silver_query = (
+-- MAGIC     silver_stream.writeStream
+-- MAGIC     .format("delta")
+-- MAGIC     .outputMode("append")  # Append mode
+-- MAGIC     .option("checkpointLocation", "dbfs:/mnt/demo/checkpoints/silver/checkpoint")
+-- MAGIC     .toTable("orders_silver")
+-- MAGIC )
+-- MAGIC
+-- MAGIC print("Silver streaming query started.")
+-- MAGIC
+
+-- COMMAND ----------
+
+-- Verify Customers Lookup Table
+SELECT * FROM customers_lookup;
+
+-- COMMAND ----------
+
+-- Verify Books Lookup Table
+SELECT * FROM books_lookup;
+
+-- COMMAND ----------
+
 -- Verify Silver Table
 SELECT * FROM orders_silver;
+
+-- COMMAND ----------
+
+-- MAGIC %python
+-- MAGIC # Test the Silver stream transformation
+-- MAGIC silver_test = (
+-- MAGIC     spark.read.table("orders_bronze")
+-- MAGIC     .join(spark.read.table("customers_lookup"), "customer_id")
+-- MAGIC     .join(spark.read.table("books_lookup"), "book_id")
+-- MAGIC     .select(
+-- MAGIC         "order_id",
+-- MAGIC         "customer_id",
+-- MAGIC         "customer_name",
+-- MAGIC         "book_id",
+-- MAGIC         "book_title",
+-- MAGIC         "quantity",
+-- MAGIC         from_unixtime("order_timestamp").cast("timestamp").alias("order_timestamp")
+-- MAGIC     )
+-- MAGIC )
+-- MAGIC
+-- MAGIC # Display the transformation output
+-- MAGIC silver_test.show()
 
 -- COMMAND ----------
 
@@ -178,45 +234,55 @@ SELECT * FROM orders_silver;
 -- Drop the table if it exists
 DROP TABLE IF EXISTS daily_customer_books;
 
--- Create the Gold Delta table with a hardcoded path
+-- Create a managed Gold Delta table
 CREATE TABLE daily_customer_books (
     customer_id INT,
     customer_name STRING,
     order_date DATE,
     books_count INT
-) USING DELTA
-LOCATION 'dbfs:/mnt/demo/gold';
+) USING DELTA;
 
 -- COMMAND ----------
 
 -- MAGIC %python
-# Streaming aggregation for Gold layer
-silver_df = spark.readStream.table("orders_silver")
-
-gold_stream = (
-    silver_df
-    .groupBy(
-        "customer_id",
-        "customer_name",
-        date_trunc("DAY", "order_timestamp").alias("order_date")
-    )
-    .agg(sum("quantity").alias("books_count"))
-)
-
-# Write the aggregated stream into the Gold Delta table
-gold_query = (
-    gold_stream.writeStream
-    .format("delta")
-    .outputMode("complete")  # Complete mode for aggregation
-    .option("checkpointLocation", "dbfs:/mnt/demo/checkpoints/gold/checkpoint")
-    .toTable("daily_customer_books")
-)
-
-print("Gold streaming query started.")
+-- MAGIC # Delete the checkpoint directory for the Gold stream
+-- MAGIC dbutils.fs.rm("dbfs:/mnt/demo/checkpoints/gold/checkpoint", recurse=True)
 
 -- COMMAND ----------
 
--- MAGIC %sql
+-- MAGIC %python
+-- MAGIC from pyspark.sql.functions import sum, date_trunc, col
+-- MAGIC
+-- MAGIC # Transform Silver stream to prepare for Gold stream
+-- MAGIC gold_stream = (
+-- MAGIC     spark.readStream
+-- MAGIC     .table("orders_silver")  # Read from the Silver table
+-- MAGIC     .groupBy(
+-- MAGIC         "customer_id",
+-- MAGIC         "customer_name",
+-- MAGIC         date_trunc("DAY", col("order_timestamp")).cast("date").alias("order_date")  # Ensure order_date is DATE
+-- MAGIC     )
+-- MAGIC     .agg(sum("quantity").cast("int").alias("books_count"))  # Aggregate quantity
+-- MAGIC )
+
+-- COMMAND ----------
+
+-- MAGIC %python
+-- MAGIC from pyspark.sql.functions import sum, date_trunc
+-- MAGIC
+-- MAGIC # Start the Gold stream
+-- MAGIC gold_query = (
+-- MAGIC     gold_stream.writeStream
+-- MAGIC     .format("delta")
+-- MAGIC     .outputMode("complete")  # Complete mode for aggregations
+-- MAGIC     .option("checkpointLocation", "dbfs:/mnt/demo/checkpoints/gold/checkpoint")
+-- MAGIC     .toTable("daily_customer_books")
+-- MAGIC )
+-- MAGIC
+-- MAGIC print("Gold streaming query started.")
+
+-- COMMAND ----------
+
 -- Verify Gold Table
 SELECT * FROM daily_customer_books;
 
@@ -229,12 +295,11 @@ SELECT * FROM daily_customer_books;
 -- COMMAND ----------
 
 -- MAGIC %python
-# Simulate new data arrival
-generate_raw_data("dbfs:/mnt/demo/raw", 2)
+-- MAGIC # Simulate new data arrival
+-- MAGIC generate_raw_data("dbfs:/mnt/demo/raw", 2)
 
 -- COMMAND ----------
 
--- MAGIC %sql
 -- Check the updated count in the Gold table
 SELECT COUNT(*) FROM daily_customer_books;
 
@@ -247,7 +312,7 @@ SELECT COUNT(*) FROM daily_customer_books;
 -- COMMAND ----------
 
 -- MAGIC %python
-# Stop all active streams to release resources
-for stream in spark.streams.active:
-    print(f"Stopping stream: {stream.id}")
-    stream.stop()
+-- MAGIC # Stop all active streams to release resources
+-- MAGIC for stream in spark.streams.active:
+-- MAGIC     print(f"Stopping stream: {stream.id}")
+-- MAGIC     stream.stop()

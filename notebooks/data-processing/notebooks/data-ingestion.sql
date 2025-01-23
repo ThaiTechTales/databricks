@@ -1,67 +1,68 @@
--- Databricks notebook source
--- MAGIC %md-sandbox
--- MAGIC
--- MAGIC ## Incremental Data Ingestion Using Auto Loader
--- MAGIC This notebook demonstrates how to use Auto Loader in Databricks for incremental data ingestion.
+# Databricks notebook source
+# MAGIC %md-sandbox
+# MAGIC
+# MAGIC ## Incremental Data Ingestion Using Auto Loader
+# MAGIC This notebook demonstrates how to use Auto Loader in Databricks for incremental data ingestion while addressing schema mismatches.
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %md
--- MAGIC
--- MAGIC ## 1. Setting Up the Environment
--- MAGIC Define directories and create the target Delta table.
+# MAGIC %md
+# MAGIC
+# MAGIC ## 1. Setting Up the Environment
+# MAGIC Define directories and prepare the environment.
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %python
+# MAGIC %python
 # Import required modules
 from pyspark.sql.functions import *
 from datetime import date
 
-# Define source and checkpoint directories (local paths)
-source_dir = "/Workspace/thai.le.trial.02@gmail.com/le/databricks/notebooks/querying-ecommerce/data/customers-json"
-checkpoint_dir = "/Workspace/thai.le.trial.02@gmail.com/le/databricks/notebooks/querying-ecommerce/data/checkpoint"
+# Define source and checkpoint directories on DBFS
+source_dir = "dbfs:/FileStore/simple-sales-raw"
+checkpoint_dir = "dbfs:/FileStore/simple-sales-checkpoint"
 
-# Ensure directories exist
-import os
-os.makedirs(source_dir, exist_ok=True)
-os.makedirs(checkpoint_dir, exist_ok=True)
+# Clear and recreate source directory
+dbutils.fs.rm(source_dir, recurse=True)
+dbutils.fs.mkdirs(source_dir)
 
-print(f"Source directory: {source_dir}")
-print(f"Checkpoint directory: {checkpoint_dir}")
+# Clear and recreate checkpoint directory
+dbutils.fs.rm(checkpoint_dir, recurse=True)
+dbutils.fs.mkdirs(checkpoint_dir)
 
--- COMMAND ----------
+print("Source and checkpoint directories set up.")
 
--- MAGIC %md
--- MAGIC
--- MAGIC ## 2. Create the Target Delta Table
--- MAGIC Define the `simple_sales_updates` table with the expected schema.
+# COMMAND ----------
 
--- COMMAND ----------
+# MAGIC %md
+# MAGIC
+# MAGIC ## 2. Create the Target Delta Table
+# MAGIC Define the `simple_sales_updates` table with the expected schema.
 
--- Clear the existing table if it exists
+# COMMAND ----------
+
+# MAGIC %sql
 DROP TABLE IF EXISTS default.simple_sales_updates;
 
--- Create the Delta table
 CREATE TABLE default.simple_sales_updates (
     order_id INT,
     order_date DATE,
     amount DOUBLE
 ) USING DELTA;
 
--- Verify table creation
+-- Verify that the table is created
 SHOW TABLES IN default;
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %md
--- MAGIC
--- MAGIC ## 3. Generate Simple Data
--- MAGIC Create and load Parquet files into the source directory.
+# MAGIC %md
+# MAGIC
+# MAGIC ## 3. Generate Sample Data
+# MAGIC Create and load Parquet files into the source directory.
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %python
+# MAGIC %python
 # Function to generate sample data
 def generate_sample_data(directory, file_count=1):
     for i in range(file_count):
@@ -74,62 +75,58 @@ def generate_sample_data(directory, file_count=1):
             ],
             ["id", "order_date", "value"]
         )
-        # Write the data to a Parquet file
-        df.write.mode("overwrite").parquet(f"file:{directory}/file_{i}.parquet")
+        # Write the data to a Parquet file in the source directory
+        file_path = f"{directory}/file_{i}.parquet"
+        df.write.mode("overwrite").parquet(file_path)
+        print(f"File written: {file_path}")
 
-# Generate one file in the source directory
+# Generate sample data
 generate_sample_data(source_dir, file_count=1)
-print(f"Sample data generated in {source_dir}")
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %md
--- MAGIC
--- MAGIC ## 4. Verify the Source Data
--- MAGIC Confirm that the data exists in the source directory.
+# MAGIC %md
+# MAGIC
+# MAGIC ## 4. Verify the Source Data
+# MAGIC Confirm that the data exists in the source directory.
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %python
-# List files in the source directory
-import os
-files = os.listdir(source_dir)
+# MAGIC %python
+# List files in the directory
 print("Files in source directory:")
-for file in files:
-    print(file)
+display(dbutils.fs.ls(source_dir))
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %python
-# Check the content of the first file
-file_path = f"file:{source_dir}/file_0.parquet"
+# MAGIC %python
+# Check the content of the file
+file_path = f"{source_dir}/file_0.parquet"
 df = spark.read.format("parquet").load(file_path)
 df.printSchema()
 df.show()
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %md
--- MAGIC
--- MAGIC ## 5. Configure and Start the Streaming Query
--- MAGIC Use Auto Loader to ingest data into the `simple_sales_updates` Delta table.
+# MAGIC %md
+# MAGIC
+# MAGIC ## 5. Configure and Start the Streaming Query
+# MAGIC Use Auto Loader to ingest data into the `simple_sales_updates` Delta table.
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %python
-# Clear the checkpoint directory
-import shutil
-shutil.rmtree(checkpoint_dir, ignore_errors=True)
-os.makedirs(checkpoint_dir, exist_ok=True)
-print("Checkpoint directory cleared.")
+# MAGIC %python
+# Clear the checkpoint directory to ensure no conflicts
+dbutils.fs.rm(checkpoint_dir, recurse=True)
+dbutils.fs.mkdirs(checkpoint_dir)
 
 # Define the streaming query
 streaming_df = (
     spark.readStream
     .format("cloudFiles")
     .option("cloudFiles.format", "parquet")  # Source file format
-    .option("cloudFiles.schemaLocation", f"file:{checkpoint_dir}")  # Schema storage
-    .load(f"file:{source_dir}")  # Source directory
+    .option("cloudFiles.schemaLocation", checkpoint_dir)  # Schema storage
+    .load(source_dir)  # Source directory
     .withColumnRenamed("id", "order_id")  # Rename column to match Delta table schema
     .withColumnRenamed("value", "amount")  # Rename column to match Delta table schema
     .withColumn("order_id", col("order_id").cast("int"))  # Ensure order_id is IntegerType
@@ -140,7 +137,7 @@ streaming_df = (
 # Write the stream to the Delta table
 streaming_query = (
     streaming_df.writeStream
-    .option("checkpointLocation", f"file:{checkpoint_dir}")  # Checkpoint directory
+    .option("checkpointLocation", checkpoint_dir)  # Checkpoint directory
     .option("mergeSchema", "true")  # Enable schema merging
     .outputMode("append")  # Append mode
     .toTable("default.simple_sales_updates")  # Fully qualified table name
@@ -148,72 +145,77 @@ streaming_query = (
 
 print("Streaming query started.")
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %md
--- MAGIC
--- MAGIC ## 6. Validate the Data Ingestion
--- MAGIC Query the `simple_sales_updates` table to verify data ingestion.
+# MAGIC %md
+# MAGIC
+# MAGIC ## 6. Validate the Data Ingestion
+# MAGIC Query the `simple_sales_updates` table to verify data ingestion.
 
--- COMMAND ----------
+# COMMAND ----------
 
+# MAGIC %sql
 SELECT * FROM default.simple_sales_updates;
 
--- COMMAND ----------
+# COMMAND ----------
 
+# MAGIC %sql
 SELECT COUNT(*) AS total_records FROM default.simple_sales_updates;
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %md
--- MAGIC
--- MAGIC ## 7. Simulate New Data Arrival
--- MAGIC Add more data to the source directory to simulate real-time updates.
+# MAGIC %md
+# MAGIC
+# MAGIC ## 7. Simulate New Data Arrival
+# MAGIC Add more data to the source directory to simulate real-time updates.
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %python
+# MAGIC %python
 # Generate additional data files
 generate_sample_data(source_dir, file_count=3)
-print(f"Additional data files generated in {source_dir}")
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %md
--- MAGIC
--- MAGIC ## 8. Verify Ingestion of New Data
--- MAGIC Confirm that the new data has been processed by the streaming query.
+# MAGIC %md
+# MAGIC
+# MAGIC ## 8. Verify Ingestion of New Data
+# MAGIC Confirm that the new data has been processed by the streaming query.
 
--- COMMAND ----------
+# COMMAND ----------
 
+# MAGIC %sql
 SELECT COUNT(*) AS total_records FROM default.simple_sales_updates;
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %md
--- MAGIC
--- MAGIC ## 9. Explore Table History
--- MAGIC Delta Lake maintains a history of all operations on the table.
+# MAGIC %md
+# MAGIC
+# MAGIC ## 9. Explore Table History
+# MAGIC Delta Lake maintains a history of all operations on the table.
 
--- COMMAND ----------
+# COMMAND ----------
 
+# MAGIC %sql
 DESCRIBE HISTORY default.simple_sales_updates;
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %md
--- MAGIC
--- MAGIC ## 10. Clean Up Resources
--- MAGIC Drop the Delta table and delete the directories.
+# MAGIC %md
+# MAGIC
+# MAGIC ## 10. Clean Up Resources
+# MAGIC Drop the Delta table and delete the directories.
 
--- COMMAND ----------
+# COMMAND ----------
 
+# MAGIC %sql
 DROP TABLE IF EXISTS default.simple_sales_updates;
 
--- COMMAND ----------
+# COMMAND ----------
 
--- MAGIC %python
+# MAGIC %python
 # Clean up directories
-shutil.rmtree(source_dir, ignore_errors=True)
-shutil.rmtree(checkpoint_dir, ignore_errors=True)
+dbutils.fs.rm(source_dir, recurse=True)
+dbutils.fs.rm(checkpoint_dir, recurse=True)
+
 print("Resources cleaned up.")

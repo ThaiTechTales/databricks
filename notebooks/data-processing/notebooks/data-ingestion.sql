@@ -1,19 +1,19 @@
-# Databricks notebook source
-# MAGIC %md-sandbox
-# MAGIC
-# MAGIC ## Incremental Data Ingestion Using Auto Loader
-# MAGIC This notebook demonstrates how to use Auto Loader in Databricks for incremental data ingestion while addressing schema mismatches.
+-- Databricks notebook source
+-- MAGIC %md-sandbox
+-- MAGIC
+-- MAGIC ## Incremental Data Ingestion Using Auto Loader
+-- MAGIC This notebook demonstrates how to use Auto Loader in Databricks for incremental data ingestion while addressing schema mismatches.
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %md
-# MAGIC
-# MAGIC ## 1. Setting Up the Environment
-# MAGIC Define directories and prepare the environment.
+-- MAGIC %md
+-- MAGIC
+-- MAGIC ## 1. Setting Up the Environment
+-- MAGIC Define directories and prepare the environment.
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %python
+-- MAGIC %python
 # Import required modules
 from pyspark.sql.functions import *
 from datetime import date
@@ -32,16 +32,16 @@ dbutils.fs.mkdirs(checkpoint_dir)
 
 print("Source and checkpoint directories set up.")
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %md
-# MAGIC
-# MAGIC ## 2. Create the Target Delta Table
-# MAGIC Define the `simple_sales_updates` table with the expected schema.
+-- MAGIC %md
+-- MAGIC
+-- MAGIC ## 2. Create the Target Delta Table
+-- MAGIC Define the `simple_sales_updates` table with the expected schema.
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %sql
+-- MAGIC %sql
 DROP TABLE IF EXISTS default.simple_sales_updates;
 
 CREATE TABLE default.simple_sales_updates (
@@ -50,19 +50,22 @@ CREATE TABLE default.simple_sales_updates (
     amount DOUBLE
 ) USING DELTA;
 
--- Verify that the table is created
+-- COMMAND ----------
+
+-- MAGIC %sql
+-- MAGIC -- Verify that the table is created
 SHOW TABLES IN default;
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %md
-# MAGIC
-# MAGIC ## 3. Generate Sample Data
-# MAGIC Create and load Parquet files into the source directory.
+-- MAGIC %md
+-- MAGIC
+-- MAGIC ## 3. Generate Sample Data
+-- MAGIC Create and load Parquet files into the source directory.
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %python
+-- MAGIC %python
 # Function to generate sample data
 def generate_sample_data(directory, file_count=1):
     for i in range(file_count):
@@ -83,39 +86,39 @@ def generate_sample_data(directory, file_count=1):
 # Generate sample data
 generate_sample_data(source_dir, file_count=1)
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %md
-# MAGIC
-# MAGIC ## 4. Verify the Source Data
-# MAGIC Confirm that the data exists in the source directory.
+-- MAGIC %md
+-- MAGIC
+-- MAGIC ## 4. Verify the Source Data
+-- MAGIC Confirm that the data exists in the source directory.
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %python
+-- MAGIC %python
 # List files in the directory
 print("Files in source directory:")
 display(dbutils.fs.ls(source_dir))
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %python
+-- MAGIC %python
 # Check the content of the file
 file_path = f"{source_dir}/file_0.parquet"
 df = spark.read.format("parquet").load(file_path)
 df.printSchema()
 df.show()
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %md
-# MAGIC
-# MAGIC ## 5. Configure and Start the Streaming Query
-# MAGIC Use Auto Loader to ingest data into the `simple_sales_updates` Delta table.
+-- MAGIC %md
+-- MAGIC
+-- MAGIC ## 5. Configure and Start the Streaming Query
+-- MAGIC Use Auto Loader to ingest data into the `simple_sales_updates` Delta table.
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %python
+-- MAGIC %python
 # Clear the checkpoint directory to ensure no conflicts
 dbutils.fs.rm(checkpoint_dir, recurse=True)
 dbutils.fs.mkdirs(checkpoint_dir)
@@ -145,75 +148,75 @@ streaming_query = (
 
 print("Streaming query started.")
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %md
-# MAGIC
-# MAGIC ## 6. Validate the Data Ingestion
-# MAGIC Query the `simple_sales_updates` table to verify data ingestion.
+-- MAGIC %md
+-- MAGIC
+-- MAGIC ## 6. Validate the Data Ingestion
+-- MAGIC Query the `simple_sales_updates` table to verify data ingestion.
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %sql
+-- MAGIC %sql
 SELECT * FROM default.simple_sales_updates;
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %sql
+-- MAGIC %sql
 SELECT COUNT(*) AS total_records FROM default.simple_sales_updates;
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %md
-# MAGIC
-# MAGIC ## 7. Simulate New Data Arrival
-# MAGIC Add more data to the source directory to simulate real-time updates.
+-- MAGIC %md
+-- MAGIC
+-- MAGIC ## 7. Simulate New Data Arrival
+-- MAGIC Add more data to the source directory to simulate real-time updates.
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %python
+-- MAGIC %python
 # Generate additional data files
 generate_sample_data(source_dir, file_count=3)
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %md
-# MAGIC
-# MAGIC ## 8. Verify Ingestion of New Data
-# MAGIC Confirm that the new data has been processed by the streaming query.
+-- MAGIC %md
+-- MAGIC
+-- MAGIC ## 8. Verify Ingestion of New Data
+-- MAGIC Confirm that the new data has been processed by the streaming query.
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %sql
+-- MAGIC %sql
 SELECT COUNT(*) AS total_records FROM default.simple_sales_updates;
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %md
-# MAGIC
-# MAGIC ## 9. Explore Table History
-# MAGIC Delta Lake maintains a history of all operations on the table.
+-- MAGIC %md
+-- MAGIC
+-- MAGIC ## 9. Explore Table History
+-- MAGIC Delta Lake maintains a history of all operations on the table.
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %sql
+-- MAGIC %sql
 DESCRIBE HISTORY default.simple_sales_updates;
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %md
-# MAGIC
-# MAGIC ## 10. Clean Up Resources
-# MAGIC Drop the Delta table and delete the directories.
+-- MAGIC %md
+-- MAGIC
+-- MAGIC ## 10. Clean Up Resources
+-- MAGIC Drop the Delta table and delete the directories.
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %sql
+-- MAGIC %sql
 DROP TABLE IF EXISTS default.simple_sales_updates;
 
-# COMMAND ----------
+-- COMMAND ----------
 
-# MAGIC %python
+-- MAGIC %python
 # Clean up directories
 dbutils.fs.rm(source_dir, recurse=True)
 dbutils.fs.rm(checkpoint_dir, recurse=True)

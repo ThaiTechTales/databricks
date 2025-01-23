@@ -3,35 +3,20 @@
 -- MAGIC
 -- MAGIC # Delta Lake Multi-Hop Pipeline with Streaming
 -- MAGIC
--- MAGIC This notebook demonstrates how to use streaming for real-time data ingestion and transformation in a Delta Lake multi-hop pipeline.
+-- MAGIC This notebook demonstrates how to build a Delta Lake pipeline with real-time streaming for Bronze, Silver, and Gold layers.
 
 -- COMMAND ----------
 
 -- MAGIC %md
 -- MAGIC
--- MAGIC ## 1. Setting Up the Environment
+-- MAGIC ## 1. Create Bronze Delta Table for Raw Streaming Data
 
 -- COMMAND ----------
 
--- MAGIC %sql
--- Set directories for the pipeline
-SET bronze_dir = 'dbfs:/mnt/demo/bronze';
-SET silver_dir = 'dbfs:/mnt/demo/silver';
-SET gold_dir = 'dbfs:/mnt/demo/gold';
-SET checkpoint_dir = 'dbfs:/mnt/demo/checkpoints';
-
--- COMMAND ----------
-
--- MAGIC %md
--- MAGIC
--- MAGIC ## 2. Bronze Layer: Streaming Data Ingestion
-
--- COMMAND ----------
-
--- MAGIC %sql
--- Create Bronze Delta table for raw streaming data
+-- Drop the table if it exists
 DROP TABLE IF EXISTS orders_bronze;
 
+-- Create the Bronze Delta table with a hardcoded path
 CREATE TABLE orders_bronze (
     order_id INT,
     customer_id INT,
@@ -41,7 +26,7 @@ CREATE TABLE orders_bronze (
     arrival_time TIMESTAMP,
     source_file STRING
 ) USING DELTA
-LOCATION '${bronze_dir}';
+LOCATION 'dbfs:/mnt/demo/bronze';
 
 -- COMMAND ----------
 
@@ -52,6 +37,7 @@ from pyspark.sql import SparkSession
 
 spark = SparkSession.builder.getOrCreate()
 
+# Function to generate raw data
 def generate_raw_data(directory, file_id):
     raw_data = [
         (file_id * 10 + 1, 101, 1, 2, int(datetime(2025, 1, 1).timestamp())),
@@ -62,18 +48,18 @@ def generate_raw_data(directory, file_id):
     df = spark.createDataFrame(raw_data, columns)
     df.write.mode("overwrite").parquet(f"dbfs:/mnt/demo/raw/orders_{file_id}.parquet")
 
-# Generate an initial batch of raw data
+# Generate the initial batch of raw data
 generate_raw_data("dbfs:/mnt/demo/raw", 1)
 
 -- COMMAND ----------
 
 -- MAGIC %python
-# Configure a streaming source for the Bronze layer using Auto Loader
+# Configure streaming source for Bronze layer using Auto Loader
 bronze_stream = (
     spark.readStream
     .format("cloudFiles")
     .option("cloudFiles.format", "parquet")  # Source format
-    .option("cloudFiles.schemaLocation", "${checkpoint_dir}/bronze/schema")  # Schema checkpoint
+    .option("cloudFiles.schemaLocation", "dbfs:/mnt/demo/checkpoints/bronze/schema")  # Schema checkpoint
     .load("dbfs:/mnt/demo/raw")  # Source directory
     .withColumn("arrival_time", current_timestamp())  # Add metadata
     .withColumn("source_file", input_file_name())  # Add metadata
@@ -84,7 +70,7 @@ bronze_query = (
     bronze_stream.writeStream
     .format("delta")
     .outputMode("append")  # Append-only mode for raw data
-    .option("checkpointLocation", "${checkpoint_dir}/bronze/checkpoint")  # Checkpoint directory
+    .option("checkpointLocation", "dbfs:/mnt/demo/checkpoints/bronze/checkpoint")  # Checkpoint directory
     .toTable("orders_bronze")
 )
 
@@ -100,14 +86,14 @@ SELECT * FROM orders_bronze;
 
 -- MAGIC %md
 -- MAGIC
--- MAGIC ## 3. Silver Layer: Data Enrichment
+-- MAGIC ## 2. Create Silver Delta Table for Enriched Data
 
 -- COMMAND ----------
 
--- MAGIC %sql
--- Create Silver Delta table for enriched data
+-- Drop the table if it exists
 DROP TABLE IF EXISTS orders_silver;
 
+-- Create the Silver Delta table with a hardcoded path
 CREATE TABLE orders_silver (
     order_id INT,
     customer_id INT,
@@ -117,12 +103,12 @@ CREATE TABLE orders_silver (
     quantity INT,
     order_timestamp TIMESTAMP
 ) USING DELTA
-LOCATION '${silver_dir}';
+LOCATION 'dbfs:/mnt/demo/silver';
 
 -- COMMAND ----------
 
 -- MAGIC %python
-# Static lookup tables for customers and books
+# Static lookup tables for enrichment
 customer_data = [
     (101, "John Doe"),
     (102, "Jane Smith"),
@@ -143,7 +129,7 @@ book_df.write.format("json").save("dbfs:/mnt/demo/lookup/books")
 -- COMMAND ----------
 
 -- MAGIC %python
-# Create streaming transformation for Silver layer
+# Streaming transformation for Silver layer
 bronze_df = spark.readStream.table("orders_bronze")
 
 customers_df = spark.read.format("json").load("dbfs:/mnt/demo/lookup/customers")
@@ -168,8 +154,8 @@ silver_stream = (
 silver_query = (
     silver_stream.writeStream
     .format("delta")
-    .outputMode("append")
-    .option("checkpointLocation", "${checkpoint_dir}/silver/checkpoint")
+    .outputMode("append")  # Append mode
+    .option("checkpointLocation", "dbfs:/mnt/demo/checkpoints/silver/checkpoint")
     .toTable("orders_silver")
 )
 
@@ -185,21 +171,21 @@ SELECT * FROM orders_silver;
 
 -- MAGIC %md
 -- MAGIC
--- MAGIC ## 4. Gold Layer: Aggregated Data
+-- MAGIC ## 3. Create Gold Delta Table for Aggregated Data
 
 -- COMMAND ----------
 
--- MAGIC %sql
--- Create Gold Delta table for aggregated data
+-- Drop the table if it exists
 DROP TABLE IF EXISTS daily_customer_books;
 
+-- Create the Gold Delta table with a hardcoded path
 CREATE TABLE daily_customer_books (
     customer_id INT,
     customer_name STRING,
     order_date DATE,
     books_count INT
 ) USING DELTA
-LOCATION '${gold_dir}';
+LOCATION 'dbfs:/mnt/demo/gold';
 
 -- COMMAND ----------
 
@@ -221,8 +207,8 @@ gold_stream = (
 gold_query = (
     gold_stream.writeStream
     .format("delta")
-    .outputMode("complete")
-    .option("checkpointLocation", "${checkpoint_dir}/gold/checkpoint")
+    .outputMode("complete")  # Complete mode for aggregation
+    .option("checkpointLocation", "dbfs:/mnt/demo/checkpoints/gold/checkpoint")
     .toTable("daily_customer_books")
 )
 
@@ -238,30 +224,30 @@ SELECT * FROM daily_customer_books;
 
 -- MAGIC %md
 -- MAGIC
--- MAGIC ## 5. Testing and Simulating New Data
+-- MAGIC ## 4. Simulate New Data Arrival and Validate the Pipeline
 
 -- COMMAND ----------
 
 -- MAGIC %python
-# Simulate new data arriving in the source directory
+# Simulate new data arrival
 generate_raw_data("dbfs:/mnt/demo/raw", 2)
 
 -- COMMAND ----------
 
 -- MAGIC %sql
--- Verify updated counts in the Gold table
+-- Check the updated count in the Gold table
 SELECT COUNT(*) FROM daily_customer_books;
 
 -- COMMAND ----------
 
 -- MAGIC %md
 -- MAGIC
--- MAGIC ## 6. Stop All Active Streams
+-- MAGIC ## 5. Stop All Active Streams
 
 -- COMMAND ----------
 
 -- MAGIC %python
-# Stop all active streams
+# Stop all active streams to release resources
 for stream in spark.streams.active:
     print(f"Stopping stream: {stream.id}")
     stream.stop()

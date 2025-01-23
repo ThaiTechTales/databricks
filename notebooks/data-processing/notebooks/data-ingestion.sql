@@ -14,23 +14,23 @@
 -- COMMAND ----------
 
 -- MAGIC %python
-# Import required modules
-from pyspark.sql.functions import *
-from datetime import date
-
-# Define source and checkpoint directories on DBFS
-source_dir = "dbfs:/FileStore/simple-sales-raw"
-checkpoint_dir = "dbfs:/FileStore/simple-sales-checkpoint"
-
-# Clear and recreate source directory
-dbutils.fs.rm(source_dir, recurse=True)
-dbutils.fs.mkdirs(source_dir)
-
-# Clear and recreate checkpoint directory
-dbutils.fs.rm(checkpoint_dir, recurse=True)
-dbutils.fs.mkdirs(checkpoint_dir)
-
-print("Source and checkpoint directories set up.")
+-- MAGIC # Import required modules
+-- MAGIC from pyspark.sql.functions import *
+-- MAGIC from datetime import date
+-- MAGIC
+-- MAGIC # Define source and checkpoint directories on DBFS
+-- MAGIC source_dir = "dbfs:/FileStore/simple-sales-raw"
+-- MAGIC checkpoint_dir = "dbfs:/FileStore/simple-sales-checkpoint"
+-- MAGIC
+-- MAGIC # Clear and recreate source directory
+-- MAGIC dbutils.fs.rm(source_dir, recurse=True)
+-- MAGIC dbutils.fs.mkdirs(source_dir)
+-- MAGIC
+-- MAGIC # Clear and recreate checkpoint directory
+-- MAGIC dbutils.fs.rm(checkpoint_dir, recurse=True)
+-- MAGIC dbutils.fs.mkdirs(checkpoint_dir)
+-- MAGIC
+-- MAGIC print("Source and checkpoint directories set up.")
 
 -- COMMAND ----------
 
@@ -41,7 +41,6 @@ print("Source and checkpoint directories set up.")
 
 -- COMMAND ----------
 
--- MAGIC %sql
 DROP TABLE IF EXISTS default.simple_sales_updates;
 
 CREATE TABLE default.simple_sales_updates (
@@ -52,8 +51,7 @@ CREATE TABLE default.simple_sales_updates (
 
 -- COMMAND ----------
 
--- MAGIC %sql
--- MAGIC -- Verify that the table is created
+-- Verify that the table is created
 SHOW TABLES IN default;
 
 -- COMMAND ----------
@@ -66,25 +64,26 @@ SHOW TABLES IN default;
 -- COMMAND ----------
 
 -- MAGIC %python
-# Function to generate sample data
-def generate_sample_data(directory, file_count=1):
-    for i in range(file_count):
-        # Create a DataFrame with sample data
-        df = spark.createDataFrame(
-            [
-                (101, date(2025, 1, 1), 99.99),
-                (102, date(2025, 1, 2), 49.50),
-                (103, date(2025, 1, 3), 29.99),
-            ],
-            ["id", "order_date", "value"]
-        )
-        # Write the data to a Parquet file in the source directory
-        file_path = f"{directory}/file_{i}.parquet"
-        df.write.mode("overwrite").parquet(file_path)
-        print(f"File written: {file_path}")
-
-# Generate sample data
-generate_sample_data(source_dir, file_count=1)
+-- MAGIC from datetime import date
+-- MAGIC
+-- MAGIC # Function to generate sample data
+-- MAGIC def generate_sample_data(directory, file_count=1):
+-- MAGIC     for i in range(file_count):
+-- MAGIC         df = spark.createDataFrame(
+-- MAGIC             [
+-- MAGIC                 (101, date(2025, 1, 1), 99.99),
+-- MAGIC                 (102, date(2025, 1, 2), 49.50),
+-- MAGIC                 (103, date(2025, 1, 3), 29.99),
+-- MAGIC             ],
+-- MAGIC             ["id", "order_date", "value"]
+-- MAGIC         )
+-- MAGIC         # Write the data to Parquet files
+-- MAGIC         df.write.mode("overwrite").parquet(f"{directory}/file_{i}.parquet")
+-- MAGIC
+-- MAGIC # Generate one sample file in the source directory
+-- MAGIC generate_sample_data(source_dir, file_count=1)
+-- MAGIC
+-- MAGIC print("Sample data generated in source directory.")
 
 -- COMMAND ----------
 
@@ -96,18 +95,20 @@ generate_sample_data(source_dir, file_count=1)
 -- COMMAND ----------
 
 -- MAGIC %python
-# List files in the directory
-print("Files in source directory:")
-display(dbutils.fs.ls(source_dir))
+-- MAGIC # List files in the directory
+-- MAGIC print("Files in source directory:")
+-- MAGIC display(dbutils.fs.ls(source_dir))
 
 -- COMMAND ----------
 
 -- MAGIC %python
-# Check the content of the file
-file_path = f"{source_dir}/file_0.parquet"
-df = spark.read.format("parquet").load(file_path)
-df.printSchema()
-df.show()
+-- MAGIC print("Files in source directory:")
+-- MAGIC try:
+-- MAGIC     files = dbutils.fs.ls(source_dir)
+-- MAGIC     display(files)
+-- MAGIC except Exception as e:
+-- MAGIC     print("Error: Source directory does not exist or is empty.")
+-- MAGIC     print(e)
 
 -- COMMAND ----------
 
@@ -119,34 +120,34 @@ df.show()
 -- COMMAND ----------
 
 -- MAGIC %python
-# Clear the checkpoint directory to ensure no conflicts
-dbutils.fs.rm(checkpoint_dir, recurse=True)
-dbutils.fs.mkdirs(checkpoint_dir)
-
-# Define the streaming query
-streaming_df = (
-    spark.readStream
-    .format("cloudFiles")
-    .option("cloudFiles.format", "parquet")  # Source file format
-    .option("cloudFiles.schemaLocation", checkpoint_dir)  # Schema storage
-    .load(source_dir)  # Source directory
-    .withColumnRenamed("id", "order_id")  # Rename column to match Delta table schema
-    .withColumnRenamed("value", "amount")  # Rename column to match Delta table schema
-    .withColumn("order_id", col("order_id").cast("int"))  # Ensure order_id is IntegerType
-    .withColumn("amount", col("amount").cast("double"))  # Ensure amount is DoubleType
-    .select("order_id", "order_date", "amount")  # Select relevant columns
-)
-
-# Write the stream to the Delta table
-streaming_query = (
-    streaming_df.writeStream
-    .option("checkpointLocation", checkpoint_dir)  # Checkpoint directory
-    .option("mergeSchema", "true")  # Enable schema merging
-    .outputMode("append")  # Append mode
-    .toTable("default.simple_sales_updates")  # Fully qualified table name
-)
-
-print("Streaming query started.")
+-- MAGIC # Clear the checkpoint directory to ensure no conflicts
+-- MAGIC dbutils.fs.rm(checkpoint_dir, recurse=True)
+-- MAGIC dbutils.fs.mkdirs(checkpoint_dir)
+-- MAGIC
+-- MAGIC # Define the streaming query
+-- MAGIC streaming_df = (
+-- MAGIC     spark.readStream
+-- MAGIC     .format("cloudFiles")
+-- MAGIC     .option("cloudFiles.format", "parquet")  # Source file format
+-- MAGIC     .option("cloudFiles.schemaLocation", checkpoint_dir)  # Schema storage
+-- MAGIC     .load(source_dir)  # Source directory
+-- MAGIC     .withColumnRenamed("id", "order_id")  # Rename column to match Delta table schema
+-- MAGIC     .withColumnRenamed("value", "amount")  # Rename column to match Delta table schema
+-- MAGIC     .withColumn("order_id", col("order_id").cast("int"))  # Ensure order_id is IntegerType
+-- MAGIC     .withColumn("amount", col("amount").cast("double"))  # Ensure amount is DoubleType
+-- MAGIC     .select("order_id", "order_date", "amount")  # Select relevant columns
+-- MAGIC )
+-- MAGIC
+-- MAGIC # Write the stream to the Delta table
+-- MAGIC streaming_query = (
+-- MAGIC     streaming_df.writeStream
+-- MAGIC     .option("checkpointLocation", checkpoint_dir)  # Checkpoint directory
+-- MAGIC     .option("mergeSchema", "true")  # Enable schema merging
+-- MAGIC     .outputMode("append")  # Append mode
+-- MAGIC     .toTable("default.simple_sales_updates")  # Fully qualified table name
+-- MAGIC )
+-- MAGIC
+-- MAGIC print("Streaming query started.")
 
 -- COMMAND ----------
 
@@ -157,12 +158,10 @@ print("Streaming query started.")
 
 -- COMMAND ----------
 
--- MAGIC %sql
 SELECT * FROM default.simple_sales_updates;
 
 -- COMMAND ----------
 
--- MAGIC %sql
 SELECT COUNT(*) AS total_records FROM default.simple_sales_updates;
 
 -- COMMAND ----------
@@ -175,8 +174,8 @@ SELECT COUNT(*) AS total_records FROM default.simple_sales_updates;
 -- COMMAND ----------
 
 -- MAGIC %python
-# Generate additional data files
-generate_sample_data(source_dir, file_count=3)
+-- MAGIC # Generate additional data files
+-- MAGIC generate_sample_data(source_dir, file_count=3)
 
 -- COMMAND ----------
 
@@ -187,7 +186,6 @@ generate_sample_data(source_dir, file_count=3)
 
 -- COMMAND ----------
 
--- MAGIC %sql
 SELECT COUNT(*) AS total_records FROM default.simple_sales_updates;
 
 -- COMMAND ----------
@@ -199,7 +197,6 @@ SELECT COUNT(*) AS total_records FROM default.simple_sales_updates;
 
 -- COMMAND ----------
 
--- MAGIC %sql
 DESCRIBE HISTORY default.simple_sales_updates;
 
 -- COMMAND ----------
@@ -211,14 +208,13 @@ DESCRIBE HISTORY default.simple_sales_updates;
 
 -- COMMAND ----------
 
--- MAGIC %sql
 DROP TABLE IF EXISTS default.simple_sales_updates;
 
 -- COMMAND ----------
 
 -- MAGIC %python
-# Clean up directories
-dbutils.fs.rm(source_dir, recurse=True)
-dbutils.fs.rm(checkpoint_dir, recurse=True)
-
-print("Resources cleaned up.")
+-- MAGIC # Clean up directories
+-- MAGIC dbutils.fs.rm(source_dir, recurse=True)
+-- MAGIC dbutils.fs.rm(checkpoint_dir, recurse=True)
+-- MAGIC
+-- MAGIC print("Resources cleaned up.")

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This repository is dedicated to showcasing projects built on Databricks, focusing on big data analytics, data engineering, and machine learning workflows.
+This repository is dedicated to showcasing projects built on Databricks, focusing on big data analytics, data engineering, and machine learning workflows. It contains notebooks, scripts, and other resources that demonstrate the capabilities of Databricks in managing and processing large datasets.
 
 ## Intention
 

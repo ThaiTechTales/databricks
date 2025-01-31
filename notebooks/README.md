@@ -15,10 +15,11 @@ This repository contains a collection of Databricks notebooks designed to practi
 
 ## Notebooks
 
-- **Data Engineering**: Notebooks focused on building data pipelines, ETL processes, and data transformations.
-- **Data Analysis**: Notebooks for querying, analyzing, and visualizing data.
-- **Machine Learning**: Notebooks demonstrating machine learning workflows, including data preprocessing, model training, and evaluation.
-- **Advanced Transformations**: Notebooks showcasing advanced data transformations using Spark SQL and Delta Lake.
+- **querying:** Notebooks for querying data using SQL and Spark SQL.
+- **writing:** Notebooks for writing data to different file formats and storage systems.
+- **transformation:** Notebooks for transforming data using Spark transformations and actions.
+- **functions:** Notebooks for defining and using functions in Databricks.
+- **data-processing:**: Notebooks for data processing tasks, such as data cleaning, transformation, and aggregation.
 
 ## Getting Started
 

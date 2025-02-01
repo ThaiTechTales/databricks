@@ -12,4 +12,4 @@ This repository is dedicated to showcasing projects built on Databricks, focusin
 
 ## Projects
 
-- Notebooks: Databricks notebooks for learning data processing, analytics, and machine learning.
+- Notebooks: Databricks notebooks for learning queries, writing data, transformations, functions, and data processing.
